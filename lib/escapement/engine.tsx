@@ -28,6 +28,7 @@ interface MintInput {
 }
 
 interface EngineValue {
+  hydrated: boolean;
   lease: EscapementLease | null;
   ticks: TickReceipt[];
   receipt: FeeSettleReceipt | null;
@@ -224,6 +225,7 @@ export function EngineProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
+      hydrated,
       lease,
       ticks,
       receipt,
@@ -235,6 +237,7 @@ export function EngineProvider({ children }: { children: ReactNode }) {
       clearLease,
     }),
     [
+      hydrated,
       lease,
       ticks,
       receipt,
