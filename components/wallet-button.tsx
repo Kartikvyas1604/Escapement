@@ -65,8 +65,7 @@ export function WalletButton() {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border bg-secondary px-3 font-mono text-sm tabular-nums text-secondary-foreground transition-colors duration-100 hover:bg-popover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      >
+        className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border bg-secondary px-3 font-mono text-sm tabular-nums text-secondary-foreground transition-colors duration-100 hover:bg-popover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"      >
         <span className="h-2 w-2 rounded-full bg-success" aria-hidden />
         {truncateAddress(publicKey)}
         <ChevronDown

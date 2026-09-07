@@ -21,11 +21,12 @@ export function SiteHeader() {
             className="flex items-baseline gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <span className="font-serif text-xl leading-none tracking-wide">
-              ESCAPEMENT
+              ESC
+              <span className="hidden sm:inline">APEMENT</span>
             </span>
             <span className="h-1.5 w-1.5 translate-y-[-2px] rounded-full bg-primary motion-safe:animate-pulse" />
           </Link>
-          <nav aria-label="Main" className="flex items-center gap-4 md:gap-6">
+          <nav aria-label="Main" className="flex items-center gap-3 md:gap-6">
             {links.map((link) => {
               const active =
                 link.href === "/"
