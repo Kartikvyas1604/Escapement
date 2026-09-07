@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Escapement">
+  <path
+    fill="#EDEDED"
+    fill-rule="evenodd"
+    d="M 35.53 19.37
+L 41.30 16.06
+L 41.99 22.25
+L 48.60 21.57
+L 46.72 27.50
+L 53.04 29.57
+L 48.91 34.22
+L 53.84 38.68
+L 48.17 41.25
+L 50.86 47.33
+L 44.63 47.38
+L 44.62 54.02
+L 38.91 51.53
+L 36.20 57.60
+L 32.00 53.00
+L 27.05 57.44
+L 25.09 51.53
+L 18.76 53.57
+L 19.37 47.38
+L 12.76 46.67
+L 15.83 41.25
+L 10.08 37.92
+L 15.09 34.22
+L 11.20 28.84
+L 17.28 27.50
+L 15.91 21.00
+L 22.01 22.25
+L 23.40 15.75
+L 28.47 19.37
+L 32.38 14.00
+L 35.53 19.37
+Z
+M 32 30 A 6 6 0 1 0 32 42 A 6 6 0 1 0 32 30 Z"
+  />
+  <circle cx="32" cy="36" r="2.75" fill="#22D3EE" />
+  <path
+    fill="none"
+    stroke="#EDEDED"
+    stroke-width="2.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    d="M 32 5 L 32 9.5 M 20.5 16.1 L 32 9.5 L 43.5 16.1"
+  />
+  <g fill="#22D3EE">
+    <rect x="-4.5" y="-2.1" width="9" height="4.2" rx="1.2" transform="translate(20.5 16.1) rotate(-30)" />
+    <rect x="-4.5" y="-2.1" width="9" height="4.2" rx="1.2" transform="translate(43.5 16.1) rotate(30)" />
+  </g>
+</svg>

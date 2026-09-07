@@ -31,3 +31,14 @@ Dark-native only. The product spec mandates near-black; there is no light theme.
 - Concise, active, specific. "Settle fees" not "You can settle your fees here".
 - Honest: unused leases expire, devnet is labeled devnet, no fake APY.
 - Anti-tells: no purple SaaS chrome, no gradient wallpaper, no "ScheduleTask tutorial" framing.
+
+## Logo
+
+The mark is a **15-tooth escape wheel** — the watch mechanism that releases motion one tick at a time — engaged by a two-pallet anchor fork. It literalizes the product: discrete, metered ticks bought as a lease.
+
+- `public/logo-mark.svg` — mark only, transparent, dark-background colors (light wheel, cyan pallets/axle).
+- `public/logo-lockup.svg` — horizontal lockup with serif wordmark + mono "LIVE KEEPER EXCHANGE" tagline, for dark backgrounds.
+- `public/logo-lockup-light.svg` — same lockup re-inked for light backgrounds (near-black wheel/text).
+- `app/icon.svg` — favicon: mark on a near-black rounded tile.
+
+Rules: cyan is reserved for the pallets, axle, and interactive accents — never recolor the wheel. Clear space around the mark ≥ wheel radius. No gradients, no drop shadows.

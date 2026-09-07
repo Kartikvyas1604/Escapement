@@ -18,13 +18,20 @@ export function SiteHeader() {
         <div className="flex items-center gap-6 md:gap-8">
           <Link
             href="/"
-            className="flex items-baseline gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-mark.svg"
+              alt=""
+              className="h-7 w-7 shrink-0"
+              width={28}
+              height={28}
+            />
             <span className="font-serif text-xl leading-none tracking-wide">
               ESC
               <span className="hidden sm:inline">APEMENT</span>
             </span>
-            <span className="h-1.5 w-1.5 translate-y-[-2px] rounded-full bg-primary motion-safe:animate-pulse" />
           </Link>
           <nav aria-label="Main" className="flex items-center gap-3 md:gap-6">
             {links.map((link) => {
