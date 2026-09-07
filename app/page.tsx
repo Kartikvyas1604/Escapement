@@ -1,69 +1,121 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+
+const stats = [
+  { value: "500ms", label: "Min tick cadence" },
+  { value: "0", label: "Signatures per tick" },
+  { value: "1 tx", label: "Fee settle on Solana" },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8">
+      <section className="flex flex-col items-start gap-6 py-20 md:py-28 lg:py-36">
+        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          Live keeper exchange · MagicBlock Ephemeral Rollups
+        </p>
+        <h1 className="max-w-3xl font-serif text-5xl leading-[1.05] tracking-tight text-balance md:text-6xl lg:text-7xl">
+          Lease crank bandwidth for your program.
+        </h1>
+        <p className="max-w-prose text-base leading-relaxed text-muted-foreground md:text-lg">
+          Buy an Escapement lease — a time-bounded right to scheduled execution
+          on a MagicBlock ephemeral rollup. Pick an interval and iteration cap,
+          watch ticks fire live, settle the prepaid fee on Solana.
+        </p>
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <Link
+            href="/mint"
+            className="inline-flex min-h-12 items-center gap-2 rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-[background-color] duration-100 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-safe:active:translate-y-px"
+          >
+            Buy an Escapement lease
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+          <Link
+            href="#how-it-works"
+            className="inline-flex min-h-12 items-center rounded-md border border-border bg-secondary px-6 text-sm font-medium text-secondary-foreground transition-colors duration-100 hover:bg-popover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            How it works
+          </Link>
+        </div>
+        <dl className="grid w-full grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
+          {stats.map((stat) => (
+            <div key={stat.label} className="bg-card px-4 py-5 md:px-6">
+              <dt className="order-2 text-xs text-muted-foreground">
+                {stat.label}
+              </dt>
+              <dd className="order-1 mb-1 font-mono text-2xl font-semibold tabular-nums">
+                {stat.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section
+        id="how-it-works"
+        aria-labelledby="how-it-works-heading"
+        className="scroll-mt-24 border-t border-border py-20 md:py-24"
+      >
+        <h2
+          id="how-it-works-heading"
+          className="font-serif text-3xl tracking-tight md:text-4xl"
+        >
+          Lease. Ticks. Settle.
+        </h2>
+        <ol className="mt-10 grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
+          {steps.map((step, i) => (
+            <li key={step.title} className="flex flex-col gap-3 bg-card p-6">
+              <span className="font-mono text-xs tabular-nums text-primary">
+                0{i + 1}
+              </span>
+              <h3 className="text-sm font-medium">{step.title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {step.body}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section
+        aria-labelledby="not-tutorial-heading"
+        className="border-t border-border py-16"
+      >
+        <div className="max-w-prose">
+          <h2
+            id="not-tutorial-heading"
+            className="font-serif text-2xl tracking-tight md:text-3xl"
+          >
+            Not a crank tutorial.
+          </h2>
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground md:text-base">
+            MagicBlock&apos;s ScheduleTask docs teach you to schedule{" "}
+            <em>your own</em> task. Escapement sells the right to that execution
+            as a mintable, expiring lease — interval, iteration cap, prepaid
+            fee, settle. Same rails underneath; a different object on top.
+          </p>
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground md:text-base">
+            Useful today if you already need scheduled ER ticks and would
+            rather buy a lease than wire keeper ops yourself. Early
+            infrastructure — not a claim of mass demand.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </section>
     </div>
   );
 }
+
+const steps = [
+  {
+    title: "Buy an Escapement lease",
+    body: "Choose an interval, an iteration cap, and a program target. The prepaid fee is quoted before you sign.",
+  },
+  {
+    title: "Watch ticks fire live",
+    body: "A MagicBlock crank executes your template on the ephemeral rollup, gasless, on your cadence — no wallet signatures per tick.",
+  },
+  {
+    title: "Settle fees on Solana",
+    body: "A Magic Action commits the fee accounting to Solana L1 with an explorer transaction you can verify.",
+  },
+];
