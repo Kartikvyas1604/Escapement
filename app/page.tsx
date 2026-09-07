@@ -39,7 +39,10 @@ export default function Home() {
         </div>
         <dl className="grid w-full grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
           {stats.map((stat) => (
-            <div key={stat.label} className="bg-card px-4 py-5 md:px-6">
+            <div
+              key={stat.label}
+              className="flex flex-col bg-card px-4 py-5 md:px-6"
+            >
               <dt className="order-2 text-xs text-muted-foreground">
                 {stat.label}
               </dt>

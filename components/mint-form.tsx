@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { Field } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +35,7 @@ function validate(intervalRaw: string, iterationsRaw: string): Errors {
 export function MintForm() {
   const router = useRouter();
   const { state, connect } = useWallet();
-  const { mintLease, isMinting, error } = useEscapement();
+  const { mintLease, isMinting, error, lease } = useEscapement();
 
   const [intervalRaw, setIntervalRaw] = useState("500");
   const [iterationsRaw, setIterationsRaw] = useState("20");
@@ -64,6 +65,15 @@ export function MintForm() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      {lease && (lease.status === "Active" || lease.status === "Exhausted") && (
+        <Link
+          href="/lease"
+          className="flex min-h-10 items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/5 px-4 py-2 text-sm text-primary transition-colors duration-100 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:col-span-2"
+        >
+          A lease is already running — watch it live
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+      )}
       <Card>
         <CardContent>
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
