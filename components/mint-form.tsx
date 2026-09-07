@@ -59,7 +59,18 @@ export function MintForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitAttempted(true);
-    if (!formValid || state !== "connected") return;
+    if (!formValid) {
+      const firstInvalid = errors.interval
+        ? "interval"
+        : errors.iterations
+          ? "iterations"
+          : null;
+      if (firstInvalid) {
+        document.getElementById(firstInvalid)?.focus();
+      }
+      return;
+    }
+    if (state !== "connected") return;
     await mintLease(
       { intervalMs: Number(intervalRaw), iterations: Number(iterationsRaw) },
       publicKey ?? "unknown"

@@ -9,7 +9,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEscapement, settleFees, clearLease } from "@/lib/escapement/engine";
 import { useWallet } from "@/lib/escapement/wallet-context";
-import { formatLamports } from "@/lib/escapement/pricing";
+import { formatLamports, PRICING } from "@/lib/escapement/pricing";
 import {
   explorerUrl,
   formatClock,
@@ -235,7 +235,7 @@ export function LeaseView() {
                   Executed ({lease.iterationsDone} ticks)
                 </dt>
                 <dd className="font-mono tabular-nums">
-                  {formatLamports(lease.iterationsDone * 10_000)} SOL
+                  {formatLamports(lease.iterationsDone * PRICING.perTickLamports)} SOL
                 </dd>
               </div>
             </dl>
