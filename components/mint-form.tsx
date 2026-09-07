@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Field } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWallet } from "@/lib/escapement/wallet-context";
-import { useEscapement } from "@/lib/escapement/engine";
+import { useEscapement, mintLease } from "@/lib/escapement/engine";
 import { PRICING, formatLamports, quoteLeaseLamports } from "@/lib/escapement/pricing";
 import { formatInterval } from "@/lib/escapement/format";
 
@@ -34,8 +35,8 @@ function validate(intervalRaw: string, iterationsRaw: string): Errors {
 
 export function MintForm() {
   const router = useRouter();
-  const { state, connect } = useWallet();
-  const { mintLease, isMinting, error, lease } = useEscapement();
+  const { state, publicKey, connect } = useWallet();
+  const { isMinting, error, lease } = useEscapement();
 
   const [intervalRaw, setIntervalRaw] = useState("500");
   const [iterationsRaw, setIterationsRaw] = useState("20");
@@ -59,7 +60,10 @@ export function MintForm() {
     e.preventDefault();
     setSubmitAttempted(true);
     if (!formValid || state !== "connected") return;
-    await mintLease({ intervalMs: Number(intervalRaw), iterations: Number(iterationsRaw) });
+    await mintLease(
+      { intervalMs: Number(intervalRaw), iterations: Number(iterationsRaw) },
+      publicKey ?? "unknown"
+    );
     router.push("/lease");
   }
 

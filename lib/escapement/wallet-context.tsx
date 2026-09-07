@@ -1,72 +1,61 @@
 "use client";
 
 import {
-  createContext,
   useCallback,
-  useContext,
-  useEffect,
-  useMemo,
+  useSyncExternalStore,
   useState,
-  type ReactNode,
 } from "react";
 
-type WalletState = "disconnected" | "connecting" | "connected";
+const KEY = "escapement.wallet";
+const listeners = new Set<() => void>();
+let cache: string | null | undefined;
 
-interface WalletContextValue {
-  state: WalletState;
-  publicKey: string | null;
-  connect: () => Promise<void>;
-  disconnect: () => void;
+function read(): string | null {
+  if (typeof window === "undefined") return null;
+  if (cache === undefined) cache = window.sessionStorage.getItem(KEY);
+  return cache;
 }
 
-const WalletContext = createContext<WalletContextValue | null>(null);
-
-function randomBase58(length: number): string {
-  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return out;
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
-export function WalletProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<WalletState>("disconnected");
-  const [publicKey, setPublicKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    const saved = window.sessionStorage.getItem("escapement.wallet");
-    if (saved) {
-      setPublicKey(saved);
-      setState("connected");
-    }
-  }, []);
+export function useWallet() {
+  const publicKey = useSyncExternalStore(
+    subscribe,
+    read,
+    () => null
+  );
+  const [connecting, setConnecting] = useState(false);
 
   const connect = useCallback(async () => {
-    setState("connecting");
+    setConnecting(true);
     await new Promise((resolve) => setTimeout(resolve, 600));
-    const key = window.sessionStorage.getItem("escapement.wallet") ?? randomBase58(44);
-    window.sessionStorage.setItem("escapement.wallet", key);
-    setPublicKey(key);
-    setState("connected");
+    const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    let key = "";
+    for (let i = 0; i < 44; i++) {
+      key += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    cache = key;
+    window.sessionStorage.setItem(KEY, key);
+    listeners.forEach((l) => l());
+    setConnecting(false);
   }, []);
 
   const disconnect = useCallback(() => {
-    window.sessionStorage.removeItem("escapement.wallet");
-    setPublicKey(null);
-    setState("disconnected");
+    cache = null;
+    window.sessionStorage.removeItem(KEY);
+    listeners.forEach((l) => l());
   }, []);
 
-  const value = useMemo(
-    () => ({ state, publicKey, connect, disconnect }),
-    [state, publicKey, connect, disconnect]
-  );
+  const state = publicKey
+    ? "connected"
+    : connecting
+      ? "connecting"
+      : "disconnected";
 
-  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
-}
-
-export function useWallet(): WalletContextValue {
-  const ctx = useContext(WalletContext);
-  if (!ctx) throw new Error("useWallet must be used within WalletProvider");
-  return ctx;
+  return { state, publicKey, connect, disconnect };
 }

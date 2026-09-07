@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEscapement } from "@/lib/escapement/engine";
+import { useEscapement, settleFees, clearLease } from "@/lib/escapement/engine";
 import { useWallet } from "@/lib/escapement/wallet-context";
 import { formatLamports } from "@/lib/escapement/pricing";
 import {
@@ -26,8 +26,6 @@ export function LeaseView() {
     receipt,
     isSettling,
     error,
-    settleFees,
-    clearLease,
   } = useEscapement();
   const { publicKey } = useWallet();
   const [now, setNow] = useState<number | null>(null);
@@ -36,9 +34,12 @@ export function LeaseView() {
 
   useEffect(() => {
     if (!isLive) return;
-    setNow(Date.now());
+    const first = window.setTimeout(() => setNow(Date.now()), 0);
     const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
   }, [isLive]);
 
   if (!hydrated) {
