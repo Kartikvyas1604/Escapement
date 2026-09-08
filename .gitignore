@@ -1,24 +1,33 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+node_modules/
 
 # testing
-/coverage
+coverage/
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
-/build
+build/
+dist/
+
+# anchor / solana programs
+target/
+.anchor/
+.surfpool/
+test-ledger/
+
+# keypairs — never commit
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!next.config.ts
+!postcss.config.mjs
+!eslint.config.mjs
+!vercel.json
+apps/web/public/**/*.json
 
 # misc
 .DS_Store
@@ -30,8 +39,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files (examples are committed)
+.env
+.env.local
+.env.*.local
 
 # vercel
 .vercel

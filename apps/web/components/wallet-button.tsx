@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, ExternalLink, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/lib/escapement/wallet-context";
-import { truncateAddress } from "@/lib/escapement/format";
+import { truncateAddress } from "escapement-client";
 
 export function WalletButton() {
   const { state, publicKey, walletName, wallets, error, connect, disconnect } =

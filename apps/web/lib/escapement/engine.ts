@@ -3,8 +3,8 @@ import type {
   EscapementLease,
   FeeSettleReceipt,
   TickReceipt,
-} from "@/lib/escapement/types";
-import { PRICING, quoteLeaseLamports } from "@/lib/escapement/pricing";
+} from "escapement-client";
+import { PRICING, quoteLeaseLamports } from "escapement-client";
 import { getActiveProvider } from "@/lib/escapement/wallet-context";
 
 const STORAGE_KEY = "escapement.lease.v1";

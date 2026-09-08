@@ -9,14 +9,14 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEscapement, settleFees, clearLease } from "@/lib/escapement/engine";
 import { useWallet } from "@/lib/escapement/wallet-context";
-import { formatLamports, PRICING } from "@/lib/escapement/pricing";
+import { formatLamports, PRICING } from "escapement-client";
 import {
   explorerUrl,
   formatClock,
   formatInterval,
   formatTime,
   truncateAddress,
-} from "@/lib/escapement/format";
+} from "escapement-client";
 
 export function LeaseView() {
   const {

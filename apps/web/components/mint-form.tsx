@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWallet } from "@/lib/escapement/wallet-context";
 import { useEscapement, mintLease } from "@/lib/escapement/engine";
-import { PRICING, formatLamports, quoteLeaseLamports } from "@/lib/escapement/pricing";
-import { formatInterval } from "@/lib/escapement/format";
+import { PRICING, formatLamports, quoteLeaseLamports } from "escapement-client";
+import { formatInterval } from "escapement-client";
 
 const PRESETS = [250, 500, 1000];
 const INTERVAL_MIN = 100;

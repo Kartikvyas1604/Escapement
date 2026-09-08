@@ -1,4 +1,4 @@
-import type { LeaseStatus } from "@/lib/escapement/types";
+import type { LeaseStatus } from "escapement-client";
 
 const styles: Record<LeaseStatus, string> = {
   Active: "border-primary/40 text-primary",
