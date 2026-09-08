@@ -9,14 +9,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWallet } from "@/lib/escapement/wallet-context";
 import { useEscapement, mintLease } from "@/lib/escapement/engine";
-import { PRICING, formatLamports, quoteLeaseLamports } from "escapement-client";
-import { formatInterval } from "escapement-client";
+import {
+  formatInterval,
+  formatLamports,
+  quoteLeaseLamports,
+  PRICING,
+} from "escapement-client";
 
-const PRESETS = [250, 500, 1000];
-const INTERVAL_MIN = 100;
-const INTERVAL_MAX = 2000;
-const ITERATIONS_MIN = 1;
-const ITERATIONS_MAX = 100;
+const PRESETS = PRICING.presetsMs;
+const INTERVAL_MIN = PRICING.intervalMinMs;
+const INTERVAL_MAX = PRICING.intervalMaxMs;
+const ITERATIONS_MIN = PRICING.iterationsMin;
+const ITERATIONS_MAX = PRICING.iterationsMax;
 
 type Errors = { interval?: string; iterations?: string };
 

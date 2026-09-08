@@ -21,7 +21,3 @@ export function formatClock(ms: number): string {
 export function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString("en-GB", { hour12: false });
 }
-
-export function explorerUrl(txSig: string): string {
-  return `https://explorer.solana.com/tx/${txSig}?cluster=devnet`;
-}

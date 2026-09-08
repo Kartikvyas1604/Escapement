@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, ExternalLink, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/lib/escapement/wallet-context";
-import { truncateAddress } from "escapement-client";
+import { truncateAddress, addressExplorerUrl } from "escapement-client";
 
 export function WalletButton() {
   const { state, publicKey, walletName, wallets, error, connect, disconnect } =
@@ -142,7 +142,7 @@ export function WalletButton() {
           </button>
           <a
             role="menuitem"
-            href={`https://explorer.solana.com/address/${publicKey}?cluster=devnet`}
+            href={addressExplorerUrl(publicKey)}
             target="_blank"
             rel="noreferrer"
             onClick={() => setOpen(false)}

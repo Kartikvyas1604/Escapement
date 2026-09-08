@@ -1,8 +1,4 @@
-export const PRICING = {
-  baseLamports: 5_000,
-  perTickLamports: 10_000,
-  lamportsPerSOL: 1_000_000_000,
-} as const;
+import { PRICING } from "./config";
 
 export function quoteLeaseLamports(iterations: number): number {
   return PRICING.baseLamports + iterations * PRICING.perTickLamports;

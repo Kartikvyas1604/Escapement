@@ -9,13 +9,14 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEscapement, settleFees, clearLease } from "@/lib/escapement/engine";
 import { useWallet } from "@/lib/escapement/wallet-context";
-import { formatLamports, PRICING } from "escapement-client";
 import {
-  explorerUrl,
+  formatLamports,
   formatClock,
   formatInterval,
   formatTime,
   truncateAddress,
+  txExplorerUrl,
+  PRICING,
 } from "escapement-client";
 
 export function LeaseView() {
@@ -247,7 +248,7 @@ export function LeaseView() {
                   Settled {formatLamports(receipt.amountLamports)} SOL
                 </p>
                 <a
-                  href={explorerUrl(receipt.txSig)}
+                  href={txExplorerUrl(receipt.txSig)}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex min-h-10 items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
