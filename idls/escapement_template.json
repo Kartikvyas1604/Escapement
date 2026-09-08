@@ -1,0 +1,161 @@
+{
+  "address": "E52t2PvfqcE71MGafrLPJBgXN74WdRmkzUk9aBLLLHfi",
+  "metadata": {
+    "name": "escapement_template",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Escapement counter template program — bumped by the crank each tick"
+  },
+  "instructions": [
+    {
+      "name": "bump_counter",
+      "discriminator": [
+        124,
+        253,
+        57,
+        108,
+        184,
+        216,
+        36,
+        28
+      ],
+      "accounts": [
+        {
+          "name": "counter",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "lease"
+              }
+            ]
+          }
+        },
+        {
+          "name": "crank",
+          "docs": [
+            "Crank authority (buyer session key, buyer wallet, or Escapement",
+            "protocol crank). Pays rent on first tick."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "lease",
+          "type": "pubkey"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Counter",
+      "discriminator": [
+        255,
+        176,
+        4,
+        245,
+        188,
+        253,
+        124,
+        25
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "Bumped",
+      "discriminator": [
+        216,
+        232,
+        48,
+        238,
+        18,
+        14,
+        170,
+        81
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "LeaseMismatch",
+      "msg": "Counter was initialized for a different lease"
+    }
+  ],
+  "types": [
+    {
+      "name": "Bumped",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lease",
+            "type": "pubkey"
+          },
+          {
+            "name": "count",
+            "type": "u64"
+          },
+          {
+            "name": "slot",
+            "type": "u64"
+          },
+          {
+            "name": "unix_ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Counter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lease",
+            "docs": [
+              "Escapement lease this counter belongs to."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "count",
+            "docs": [
+              "Number of ticks fired for the lease."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ],
+  "constants": [
+    {
+      "name": "COUNTER_SEED",
+      "type": "bytes",
+      "value": "[99, 111, 117, 110, 116, 101, 114]"
+    }
+  ]
+}
