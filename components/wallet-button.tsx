@@ -7,7 +7,8 @@ import { useWallet } from "@/lib/escapement/wallet-context";
 import { truncateAddress } from "@/lib/escapement/format";
 
 export function WalletButton() {
-  const { state, publicKey, connect, disconnect } = useWallet();
+  const { state, publicKey, walletName, wallets, error, connect, disconnect } =
+    useWallet();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -36,14 +37,55 @@ export function WalletButton() {
 
   if (state !== "connected" || !publicKey) {
     return (
-      <Button
-        className="min-h-10 px-4"
-        variant="secondary"
-        loading={state === "connecting"}
-        onClick={() => void connect()}
-      >
-        {state === "connecting" ? "Connecting..." : "Connect wallet"}
-      </Button>
+      <div ref={rootRef} className="relative">
+        <Button
+          ref={triggerRef}
+          className="min-h-10 px-4"
+          variant="secondary"
+          aria-haspopup={wallets.length > 0 ? "menu" : undefined}
+          aria-expanded={open}
+          loading={state === "connecting"}
+          onClick={() => {
+            if (wallets.length > 0) {
+              setOpen((v) => !v);
+            } else {
+              window.open("https://phantom.app/download", "_blank");
+            }
+          }}
+        >
+          {state === "connecting" ? "Connecting..." : "Connect wallet"}
+        </Button>
+        {error && state !== "connecting" && (
+          <p
+            role="alert"
+            className="absolute right-0 top-full z-50 mt-2 w-56 rounded-md border border-destructive/30 bg-popover px-3 py-2 text-xs text-destructive"
+          >
+            {error}
+          </p>
+        )}
+        {open && wallets.length > 0 && (
+          <div
+            role="menu"
+            aria-label="Choose a wallet"
+            className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-lg border border-border bg-popover shadow-lg"
+          >
+            {wallets.map((wallet) => (
+              <button
+                key={wallet.name}
+                role="menuitem"
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  void connect(wallet);
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors duration-100 hover:bg-muted focus-visible:outline-none focus-visible:bg-muted"
+              >
+                {wallet.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -80,6 +122,11 @@ export function WalletButton() {
           aria-label="Wallet menu"
           className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-lg border border-border bg-popover shadow-lg"
         >
+          {walletName && (
+            <p className="px-4 pt-2.5 pb-1 text-xs text-muted-foreground">
+              Connected via {walletName}
+            </p>
+          )}
           <button
             role="menuitem"
             type="button"
@@ -110,7 +157,7 @@ export function WalletButton() {
             type="button"
             onClick={() => {
               setOpen(false);
-              disconnect();
+              void disconnect();
             }}
             className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-destructive transition-colors duration-100 hover:bg-muted focus-visible:outline-none focus-visible:bg-muted"
           >

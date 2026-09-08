@@ -54,7 +54,7 @@ Solana L1 fee settle + explorer proof
 
 ### Current status
 
-The frontend is demo-complete against a local lease engine (`lib/escapement/engine.ts`) that simulates `mint_lease` / `crank_tick` / `settle_fees` and persists lease state. Swapping in the real Anchor program + MagicBlock ER wiring means replacing the engine module's three actions — the UI, states, and flows stay unchanged.
+Wallet connection and all signed transactions are real: the app connects to injected Solana wallets (Phantom, Solflare, Backpack), and both `mintLease` and `settleFees` broadcast memo transactions to Solana devnet through the connected wallet (`lib/escapement/engine.ts`). The lease id and settle receipt signature are real devnet transaction signatures — verifiable on Solana Explorer. The tick loop still runs client-side (`lib/escapement/crank-runner.tsx`); swapping in the real MagicBlock ER crank means replacing `fireTick` — the UI, states, and flows stay unchanged.
 
 ## Stack
 

@@ -17,6 +17,7 @@ const variants: Record<Variant, string> = {
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   loading?: boolean;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 export function Button({

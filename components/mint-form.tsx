@@ -35,7 +35,7 @@ function validate(intervalRaw: string, iterationsRaw: string): Errors {
 
 export function MintForm() {
   const router = useRouter();
-  const { state, publicKey, connect } = useWallet();
+  const { state, publicKey, error: walletError, connect } = useWallet();
   const { isMinting, error, lease } = useEscapement();
 
   const [intervalRaw, setIntervalRaw] = useState("500");
@@ -70,12 +70,12 @@ export function MintForm() {
       }
       return;
     }
-    if (state !== "connected") return;
-    await mintLease(
+    if (state !== "connected" || !publicKey) return;
+    const ok = await mintLease(
       { intervalMs: Number(intervalRaw), iterations: Number(iterationsRaw) },
-      publicKey ?? "unknown"
+      publicKey
     );
-    router.push("/lease");
+    if (ok) router.push("/lease");
   }
 
   return (
@@ -177,6 +177,11 @@ export function MintForm() {
                   A session key attaches to the lease so ticks fire without
                   wallet signatures.
                 </p>
+                {walletError && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {walletError}
+                  </p>
+                )}
               </div>
             ) : (
               <Button type="submit" className="w-full min-h-12" loading={isMinting} disabled={!formValid}>
