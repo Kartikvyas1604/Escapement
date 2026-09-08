@@ -23,9 +23,28 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Escapement — Live Keeper Exchange",
+  title: {
+    default: "Escapement — Live Keeper Exchange",
+    template: "%s — Escapement",
+  },
   description:
     "Buy an Escapement lease: time-bounded MagicBlock crank bandwidth for your program, with live gasless ticks and Solana fee settlement.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://escapement.vercel.app"),
+  openGraph: {
+    title: "Escapement — Live Keeper Exchange",
+    description:
+      "Lease crank bandwidth for your program. Buy an Escapement lease, watch ticks fire live, settle fees on Solana.",
+    url: "/",
+    siteName: "Escapement",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Escapement — Live Keeper Exchange",
+    description:
+      "Lease crank bandwidth for your program on MagicBlock Ephemeral Rollups.",
+  },
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
