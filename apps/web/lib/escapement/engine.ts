@@ -1,20 +1,42 @@
 import { useSyncExternalStore } from "react";
+import {
+  Connection,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction,
+} from "@solana/web3.js";
+import {
+  CONFIG,
+  ESCAPEMENT_PROGRAM_ID,
+  crankTickData,
+  counterPda,
+  buyerStatePda,
+  decodeBuyerState,
+  decodeLease,
+  decodeMarket,
+  leasePda,
+  marketPda,
+  mintLeaseData,
+  registeredProgramPda,
+  settleFeesData,
+  vaultPda,
+} from "escapement-client";
 import type {
   EscapementLease,
   FeeSettleReceipt,
+  MarketAccount,
   TickReceipt,
 } from "escapement-client";
-import { PRICING, quoteLeaseLamports } from "escapement-client";
+import "./buffer-polyfill";
 import { getActiveProvider } from "@/lib/escapement/wallet-context";
 
-const STORAGE_KEY = "escapement.lease.v1";
-const GRACE_MS = 60_000;
+const STORAGE_KEY = "escapement.lease.v2";
 const MAX_FEED = 10;
-const DEVNET_RPC = "https://api.devnet.solana.com";
-const MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 
 export interface EscState {
   hydrated: boolean;
+  market: MarketAccount | null;
   lease: EscapementLease | null;
   ticks: TickReceipt[];
   receipt: FeeSettleReceipt | null;
@@ -25,6 +47,7 @@ export interface EscState {
 
 const SERVER_STATE: EscState = {
   hydrated: false,
+  market: null,
   lease: null,
   ticks: [],
   receipt: null,
@@ -64,13 +87,16 @@ function getSnapshot(): EscState {
 }
 
 function subscribe(listener: () => void) {
-  if (!hydrated && typeof window !== "undefined") {
+  if (!hydrated) {
     hydrated = true;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as Pick<EscState, "lease" | "ticks" | "receipt">;
-        if (saved.lease?.status === "Active" && Date.now() > saved.lease.expiresAt) {
+        if (
+          saved.lease?.status === "Active" &&
+          Date.now() > saved.lease.expiresAt + 60_000
+        ) {
           saved.lease = { ...saved.lease, status: "Expired" };
         }
         state = { ...SERVER_STATE, ...saved };
@@ -100,77 +126,158 @@ function walletErrorMessage(err: unknown): string {
   return "The wallet transaction failed. Check the wallet extension for details.";
 }
 
-/**
- * Sends a memo transaction to Solana devnet through the connected wallet and
- * waits for confirmation. Returns the real transaction signature.
- */
-async function sendMemoTx(payload: string, payer: string): Promise<string> {
+// ---------------------------------------------------------------------------
+// RPC helpers (reads go straight to the configured cluster)
+// ---------------------------------------------------------------------------
+
+let connection: Connection | null = null;
+function rpc(): Connection {
+  if (!connection) connection = new Connection(CONFIG.rpcUrl, "confirmed");
+  return connection;
+}
+
+export const PROGRAM_ID = ESCAPEMENT_PROGRAM_ID;
+
+/** Fetch and decode the on-chain market config — fees come from the chain. */
+export async function fetchMarket(): Promise<MarketAccount | null> {
+  const info = await rpc().getAccountInfo(marketPda());
+  if (!info) return null;
+  const market = decodeMarket(new Uint8Array(info.data));
+  if (state.market?.authority !== market.authority) {
+    update({ market });
+  }
+  return market;
+}
+
+/** Re-read the lease account from the chain and mirror it into local state. */
+export async function syncLease(): Promise<void> {
+  const lease = state.lease;
+  if (!lease) return;
+  try {
+    const info = await rpc().getAccountInfo(new PublicKey(lease.leasePda));
+    if (!info) return;
+    const onChain = decodeLease(new Uint8Array(info.data));
+    const next: EscapementLease = {
+      ...lease,
+      iterationsDone: onChain.iterationsDone,
+      feePrepaidLamports: onChain.feePrepaid,
+      feeSettledLamports: onChain.feeSettled,
+      status: onChain.status,
+      createdAt: onChain.createdAt * 1000,
+      expiresAt: onChain.expiresAt * 1000,
+      intervalMs: onChain.intervalMs,
+      iterations: onChain.iterations,
+      templateId: onChain.templateId,
+    };
+    // Crank ticks can land outside this tab (server crank); backfill the feed.
+    let ticks = state.ticks;
+    if (onChain.iterationsDone > lease.iterationsDone) {
+      const seen = new Set(ticks.map((t) => t.seq));
+      const missing: TickReceipt[] = [];
+      for (let seq = lease.iterationsDone + 1; seq <= onChain.iterationsDone; seq++) {
+        if (!seen.has(seq)) {
+          missing.push({ leasePda: lease.leasePda, seq, success: true, at: Date.now() });
+        }
+      }
+      ticks = [...missing, ...ticks].slice(0, MAX_FEED);
+    }
+    update({ lease: next, ticks });
+  } catch {
+    // Network hiccup — retried on the next sync.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Wallet signing
+// ---------------------------------------------------------------------------
+
+async function signAndConfirm(tx: Transaction): Promise<string> {
   const provider = getActiveProvider();
   if (!provider) throw new Error("Wallet is not connected.");
-
-  if (typeof globalThis.Buffer === "undefined") {
-    const { Buffer } = await import("buffer");
-    (globalThis as { Buffer?: unknown }).Buffer = Buffer;
-  }
-  const web3 = await import("@solana/web3.js");
-
-  const tx = new web3.Transaction().add(
-    new web3.TransactionInstruction({
-      keys: [
-        {
-          pubkey: new web3.PublicKey(payer),
-          isSigner: true,
-          isWritable: false,
-        },
-      ],
-      programId: new web3.PublicKey(MEMO_PROGRAM_ID),
-      data: Buffer.from(new TextEncoder().encode(payload)),
-    })
-  );
-
   const { signature } = await provider.signAndSendTransaction(tx);
-  const connection = new web3.Connection(DEVNET_RPC, "confirmed");
-  const result = await connection.confirmTransaction(signature, "confirmed");
+  const result = await rpc().confirmTransaction(signature, "confirmed");
   if (result.value.err) {
-    throw new Error(
-      `Settlement transaction failed on devnet: ${JSON.stringify(result.value.err)}`
-    );
+    throw new Error(`Transaction failed on devnet: ${JSON.stringify(result.value.err)}`);
   }
   return signature;
 }
 
-export async function mintLease(
-  input: { intervalMs: number; iterations: number },
-  buyer: string
-): Promise<boolean> {
+function requireBuyer(): PublicKey {
+  const pk = getActiveProvider()?.publicKey;
+  if (!pk) throw new Error("Wallet is not connected.");
+  return new PublicKey(pk.toString());
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+/**
+ * Mints a real Escapement lease: creates the lease PDA via the Escapement
+ * program and escrows the prepaid fee in the market vault.
+ */
+export async function mintLease(input: {
+  intervalMs: number;
+  iterations: number;
+}): Promise<boolean> {
   update({ isMinting: true, error: null });
   try {
-    const feeLamports = quoteLeaseLamports(input.iterations);
-    const signature = await sendMemoTx(
-      JSON.stringify({
-        app: "escapement",
-        type: "lease.mint",
-        v: 1,
-        buyer,
-        intervalMs: input.intervalMs,
-        iterations: input.iterations,
-        feeLamports,
-      }),
-      buyer
+    const buyer = requireBuyer();
+
+    // Fee schedule and template registration come from the chain.
+    const market = state.market ?? (await fetchMarket());
+    if (!market) throw new Error("Market is not initialized on this cluster.");
+    const registeredProgram = registeredProgramPda(new PublicKey(market.authority));
+
+    const registeredInfo = await rpc().getAccountInfo(registeredProgram);
+    if (!registeredInfo) {
+      throw new Error("No program template is registered for this market yet.");
+    }
+
+    const buyerState = buyerStatePda(buyer);
+    const buyerStateInfo = await rpc().getAccountInfo(buyerState);
+    const index = buyerStateInfo
+      ? decodeBuyerState(new Uint8Array(buyerStateInfo.data)).nextIndex
+      : 0;
+    const leasePkey = leasePda(buyer, index);
+
+    const tx = new Transaction().add(
+      new TransactionInstruction({
+        keys: [
+          { pubkey: buyer, isSigner: true, isWritable: true },
+          { pubkey: marketPda(), isSigner: false, isWritable: false },
+          { pubkey: registeredProgram, isSigner: false, isWritable: false },
+          { pubkey: buyerState, isSigner: false, isWritable: true },
+          { pubkey: leasePkey, isSigner: false, isWritable: true },
+          { pubkey: vaultPda(), isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        programId: ESCAPEMENT_PROGRAM_ID,
+        data: Buffer.from(mintLeaseData(input.intervalMs, input.iterations)),
+      })
     );
-    const now = Date.now();
+
+    const signature = await signAndConfirm(tx);
+
+    // Mirror the freshly minted on-chain lease into local state.
+    const leaseInfo = await rpc().getAccountInfo(leasePkey);
+    if (!leaseInfo) throw new Error("Lease account was not found after minting.");
+    const onChain = decodeLease(new Uint8Array(leaseInfo.data));
     const lease: EscapementLease = {
-      id: signature,
-      buyer,
-      program: "counter-template",
-      intervalMs: input.intervalMs,
-      iterations: input.iterations,
+      leasePda: leasePkey.toBase58(),
+      buyer: onChain.buyer,
+      index,
+      templateId: onChain.templateId,
+      registeredProgram: onChain.registeredProgram,
+      intervalMs: onChain.intervalMs,
+      iterations: onChain.iterations,
       iterationsDone: 0,
-      feePrepaidLamports: feeLamports,
+      feePrepaidLamports: onChain.feePrepaid,
       feeSettledLamports: 0,
-      status: "Active",
-      createdAt: now,
-      expiresAt: now + input.intervalMs * input.iterations + GRACE_MS,
+      status: onChain.status,
+      createdAt: onChain.createdAt * 1000,
+      expiresAt: onChain.expiresAt * 1000,
+      mintTxSig: signature,
     };
     update({ lease, ticks: [], receipt: null, isMinting: false });
     return true;
@@ -180,57 +287,132 @@ export async function mintLease(
   }
 }
 
-export function fireTick(): void {
-  const lease = state.lease;
-  if (!lease || lease.status !== "Active") return;
+let crankInFlight = false;
 
+/**
+ * Fires one tick by submitting a real crank_tick transaction. Uses the
+ * protocol crank endpoint when available (gasless for the buyer); falls
+ * back to a buyer-signed crank transaction otherwise.
+ */
+export async function crankTick(): Promise<void> {
+  const lease = state.lease;
+  if (crankInFlight || !lease || lease.status !== "Active") return;
   if (Date.now() > lease.expiresAt) {
     update({ lease: { ...lease, status: "Expired" } });
     return;
   }
-
-  const seq = lease.iterationsDone + 1;
-  const tick: TickReceipt = {
-    leaseId: lease.id,
-    seq,
-    success: true,
-    at: Date.now(),
-  };
-  const next: EscapementLease = {
-    ...lease,
-    iterationsDone: seq,
-    status: seq >= lease.iterations ? "Exhausted" : "Active",
-  };
-  update({
-    lease: next,
-    ticks: [tick, ...state.ticks].slice(0, MAX_FEED),
-  });
+  if (lease.iterationsDone >= lease.iterations) {
+    update({ lease: { ...lease, status: "Exhausted" } });
+    return;
+  }
+  crankInFlight = true;
+  try {
+    const res = await fetch("/api/crank", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leasePda: lease.leasePda }),
+    });
+    if (res.status === 501) throw new Error("__no_server_crank__");
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(body?.error ?? `Crank endpoint returned ${res.status}`);
+    }
+    const body = (await res.json()) as { txSig: string };
+    // The chain is the source of truth; backfill any new ticks on sync.
+    await syncLease();
+    if (state.lease && state.lease.iterationsDone > lease.iterationsDone) {
+      const seen = new Set(state.ticks.map((t) => t.seq));
+      const tick: TickReceipt = {
+        leasePda: lease.leasePda,
+        seq: state.lease.iterationsDone,
+        success: true,
+        at: Date.now(),
+        txSig: body.txSig,
+      };
+      if (!seen.has(tick.seq)) {
+        update({ ticks: [tick, ...state.ticks].slice(0, MAX_FEED) });
+      }
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message === "__no_server_crank__") {
+      await buyerSignedCrank();
+      return;
+    }
+    // Crank failures are retried on the next interval; surface briefly.
+    update({ error: err instanceof Error ? err.message : "Crank failed." });
+  } finally {
+    crankInFlight = false;
+  }
 }
 
+/** Fallback: the buyer's own wallet signs the crank_tick transaction. */
+async function buyerSignedCrank(): Promise<void> {
+  const lease = state.lease;
+  if (!lease) return;
+  const market = state.market ?? (await fetchMarket());
+  if (!market) throw new Error("Market is not initialized on this cluster.");
+  const buyer = requireBuyer();
+
+  const tx = new Transaction().add(
+    new TransactionInstruction({
+      keys: [
+        { pubkey: buyer, isSigner: true, isWritable: true },
+        { pubkey: marketPda(), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(lease.leasePda), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(lease.registeredProgram), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(lease.templateId), isSigner: false, isWritable: false },
+        { pubkey: counterPda(new PublicKey(lease.leasePda)), isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      programId: ESCAPEMENT_PROGRAM_ID,
+      data: Buffer.from(crankTickData()),
+    })
+  );
+  const signature = await signAndConfirm(tx);
+  const tick: TickReceipt = {
+    leasePda: lease.leasePda,
+    seq: lease.iterationsDone + 1,
+    success: true,
+    at: Date.now(),
+    txSig: signature,
+  };
+  await syncLease();
+  update({ ticks: [tick, ...state.ticks].slice(0, MAX_FEED) });
+}
+
+/**
+ * Settles the executed share of the prepaid fee via the settle_fees
+ * instruction. Permissionless on-chain; the buyer signs here for UX.
+ */
 export async function settleFees(): Promise<void> {
   const lease = state.lease;
   if (!lease || lease.iterationsDone === 0 || state.isSettling) return;
-  update({ isSettling: true, error: null });
-  update({
-    lease: { ...lease, status: "Settling" },
-  });
+  update({ isSettling: true, error: null, lease: { ...lease, status: "Settling" } });
   try {
+    const market = state.market ?? (await fetchMarket());
+    if (!market) throw new Error("Market is not initialized on this cluster.");
+
+    const tx = new Transaction().add(
+      new TransactionInstruction({
+        keys: [
+          { pubkey: new PublicKey(market.authority), isSigner: false, isWritable: true },
+          { pubkey: marketPda(), isSigner: false, isWritable: false },
+          { pubkey: new PublicKey(lease.leasePda), isSigner: false, isWritable: true },
+          { pubkey: vaultPda(), isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        programId: ESCAPEMENT_PROGRAM_ID,
+        data: Buffer.from(settleFeesData()),
+      })
+    );
+
+    const signature = await signAndConfirm(tx);
+    await syncLease();
     const settled = Math.round(
       (lease.iterationsDone / lease.iterations) * lease.feePrepaidLamports
     );
-    const signature = await sendMemoTx(
-      JSON.stringify({
-        app: "escapement",
-        type: "lease.settle",
-        v: 1,
-        leaseId: lease.id,
-        ticks: lease.iterationsDone,
-        feeLamports: settled,
-      }),
-      lease.buyer
-    );
     const receipt: FeeSettleReceipt = {
-      leaseId: lease.id,
+      leasePda: lease.leasePda,
       amountLamports: settled,
       txSig: signature,
       committedAt: Date.now(),
@@ -241,17 +423,8 @@ export async function settleFees(): Promise<void> {
       lease: { ...state.lease!, status: "Settled", feeSettledLamports: settled },
     });
   } catch (err) {
-    update({
-      isSettling: false,
-      error: walletErrorMessage(err),
-      lease: {
-        ...state.lease!,
-        status:
-          state.lease!.iterationsDone >= state.lease!.iterations
-            ? "Exhausted"
-            : "Active",
-      },
-    });
+    update({ isSettling: false, error: walletErrorMessage(err) });
+    await syncLease();
   }
 }
 
@@ -259,8 +432,6 @@ export function clearLease(): void {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(STORAGE_KEY);
   }
-  state = { ...SERVER_STATE };
+  state = { ...SERVER_STATE, hydrated: true, market: state.market };
   listeners.forEach((l) => l());
 }
-
-export { PRICING };

@@ -8,13 +8,9 @@ import { Field } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWallet } from "@/lib/escapement/wallet-context";
-import { useEscapement, mintLease } from "@/lib/escapement/engine";
-import {
-  formatInterval,
-  formatLamports,
-  quoteLeaseLamports,
-  PRICING,
-} from "escapement-client";
+import { useEscapement, mintLease, fetchMarket } from "@/lib/escapement/engine";
+import { useEffect } from "react";
+import { formatInterval, formatLamports, PRICING } from "escapement-client";
 
 const PRESETS = PRICING.presetsMs;
 const INTERVAL_MIN = PRICING.intervalMinMs;
@@ -40,7 +36,15 @@ function validate(intervalRaw: string, iterationsRaw: string): Errors {
 export function MintForm() {
   const router = useRouter();
   const { state, publicKey, error: walletError, connect } = useWallet();
-  const { isMinting, error, lease } = useEscapement();
+  const { isMinting, error, lease, market } = useEscapement();
+
+  useEffect(() => {
+    if (!market) void fetchMarket();
+  }, [market]);
+
+  // Fee schedule is read from the on-chain market config when available.
+  const baseLamports = market?.feeBase ?? PRICING.baseLamports;
+  const perTickLamports = market?.feePerTick ?? PRICING.perTickLamports;
 
   const [intervalRaw, setIntervalRaw] = useState("500");
   const [iterationsRaw, setIterationsRaw] = useState("20");
@@ -53,7 +57,8 @@ export function MintForm() {
   );
 
   const iterations = Number.isInteger(Number(iterationsRaw)) ? Number(iterationsRaw) : 0;
-  const quoted = iterations >= ITERATIONS_MIN ? quoteLeaseLamports(iterations) : null;
+  const quoted =
+    iterations >= ITERATIONS_MIN ? baseLamports + perTickLamports * iterations : null;
 
   const showIntervalError = submitAttempted || touched.interval ? errors.interval : undefined;
   const showIterationsError =
@@ -75,10 +80,10 @@ export function MintForm() {
       return;
     }
     if (state !== "connected" || !publicKey) return;
-    const ok = await mintLease(
-      { intervalMs: Number(intervalRaw), iterations: Number(iterationsRaw) },
-      publicKey
-    );
+    const ok = await mintLease({
+      intervalMs: Number(intervalRaw),
+      iterations: Number(iterationsRaw),
+    });
     if (ok) router.push("/lease");
   }
 
@@ -208,15 +213,15 @@ export function MintForm() {
                 <div className="flex items-baseline justify-between gap-2">
                   <dt className="text-muted-foreground">Base</dt>
                   <dd className="font-mono tabular-nums">
-                    {formatLamports(PRICING.baseLamports)} SOL
+                    {formatLamports(baseLamports)} SOL
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
                   <dt className="text-muted-foreground">
-                    {iterations} × {formatLamports(PRICING.perTickLamports)} / tick
+                    {iterations} × {formatLamports(perTickLamports)} / tick
                   </dt>
                   <dd className="font-mono tabular-nums">
-                    {formatLamports(PRICING.perTickLamports * iterations)} SOL
+                    {formatLamports(perTickLamports * iterations)} SOL
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-2 border-t border-border pt-2">

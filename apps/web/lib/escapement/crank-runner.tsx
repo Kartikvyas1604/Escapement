@@ -1,19 +1,29 @@
 "use client";
 
 import { useEffect } from "react";
-import { fireTick, useEscapement } from "@/lib/escapement/engine";
+import { crankTick, syncLease, useEscapement } from "@/lib/escapement/engine";
 
+/**
+ * Drives the real crank: submits crank_tick transactions on the lease's
+ * cadence while an active lease is on screen, and re-syncs lease state
+ * from the chain every second.
+ */
 export function CrankRunner() {
   const lease = useEscapement().lease;
   const isActive = lease?.status === "Active";
   const intervalMs = lease?.intervalMs ?? 0;
-  const leaseId = lease?.id;
+  const leasePda = lease?.leasePda;
 
   useEffect(() => {
     if (!isActive || intervalMs <= 0) return;
-    const id = window.setInterval(fireTick, intervalMs);
-    return () => window.clearInterval(id);
-  }, [isActive, intervalMs, leaseId]);
+    void syncLease();
+    const crank = window.setInterval(() => void crankTick(), intervalMs);
+    const poll = window.setInterval(() => void syncLease(), 1000);
+    return () => {
+      window.clearInterval(crank);
+      window.clearInterval(poll);
+    };
+  }, [isActive, intervalMs, leasePda]);
 
   return null;
 }

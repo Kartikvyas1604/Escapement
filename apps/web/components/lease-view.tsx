@@ -10,13 +10,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useEscapement, settleFees, clearLease } from "@/lib/escapement/engine";
 import { useWallet } from "@/lib/escapement/wallet-context";
 import {
+  CONFIG,
   formatLamports,
   formatClock,
   formatInterval,
   formatTime,
   truncateAddress,
   txExplorerUrl,
-  PRICING,
 } from "escapement-client";
 
 export function LeaseView() {
@@ -96,7 +96,7 @@ export function LeaseView() {
         <div className="flex items-center gap-3">
           <StatusPill status={lease.status} />
           <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            {truncateAddress(lease.id)} · counter-template
+            {truncateAddress(lease.leasePda)} · counter-template
           </span>
         </div>
         <Button variant="ghost" className="min-h-10" onClick={clearLease}>
@@ -203,7 +203,7 @@ export function LeaseView() {
                       {tick.success ? (
                         <Check className="h-3.5 w-3.5 text-success" aria-label="Tick succeeded" />
                       ) : (
-                        <X className="h-3.5 w-3.5 text-destructive" aria-label={`Tick failed with code ${tick.errorCode}`} />
+                        <X className="h-3.5 w-3.5 text-destructive" aria-label="Tick failed" />
                       )}
                       <span className="text-muted-foreground">#</span>
                       {tick.seq}
@@ -236,7 +236,11 @@ export function LeaseView() {
                   Executed ({lease.iterationsDone} ticks)
                 </dt>
                 <dd className="font-mono tabular-nums">
-                  {formatLamports(lease.iterationsDone * PRICING.perTickLamports)} SOL
+                  {formatLamports(
+                    Math.round(
+                      (lease.feePrepaidLamports * lease.iterationsDone) / lease.iterations
+                    )
+                  )} SOL
                 </dd>
               </div>
             </dl>
@@ -258,7 +262,7 @@ export function LeaseView() {
                   <span className="sr-only">(opens Solana Explorer in a new tab)</span>
                 </a>
                 <p className="text-xs text-muted-foreground">
-                  Committed {formatTime(receipt.committedAt)} on devnet.
+                  Committed {formatTime(receipt.committedAt)} on {CONFIG.cluster}.
                 </p>
               </div>
             ) : canSettle ? (

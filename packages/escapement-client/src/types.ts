@@ -1,16 +1,22 @@
-export type LeaseStatus = "Active" | "Exhausted" | "Settling" | "Settled" | "Expired";
+import type { OnChainLeaseStatus } from "./program.js";
 
-export interface EscapementProgram {
-  address: string;
-  name: string;
-  template: "counter";
-  status: "Active" | "Paused";
-}
+/** UI lease status — mirrors on-chain statuses plus the transient settle state. */
+export type LeaseStatus = OnChainLeaseStatus | "Settling";
 
+/**
+ * Local mirror of the on-chain Escapement lease account. The source of truth
+ * is the lease PDA on devnet; this record is hydrated from the chain.
+ */
 export interface EscapementLease {
-  id: string;
+  /** Lease PDA (base58) — the real on-chain account. */
+  leasePda: string;
+  /** Buyer wallet that minted the lease. */
   buyer: string;
-  program: string;
+  /** Buyer's lease index used in the PDA derivation. */
+  index: number;
+  /** Program template being cranked. */
+  templateId: string;
+  registeredProgram: string;
   intervalMs: number;
   iterations: number;
   iterationsDone: number;
@@ -19,18 +25,21 @@ export interface EscapementLease {
   status: LeaseStatus;
   createdAt: number;
   expiresAt: number;
+  /** Signature of the mint_lease transaction. */
+  mintTxSig: string;
 }
 
 export interface TickReceipt {
-  leaseId: string;
+  leasePda: string;
   seq: number;
   success: boolean;
   at: number;
-  errorCode?: number;
+  /** Signature of the crank transaction, when the crank returned one. */
+  txSig?: string;
 }
 
 export interface FeeSettleReceipt {
-  leaseId: string;
+  leasePda: string;
   amountLamports: number;
   txSig: string;
   committedAt: number;
