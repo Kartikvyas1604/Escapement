@@ -163,15 +163,11 @@ sibling). Escapement trades execution *rights*.
 ├── programs/escapement        # Anchor market program (8 instructions)
 ├── programs/template          # Anchor counter template program
 ├── scripts                    # deploy · on-chain setup · end-to-end proof
-├── docs                       # DEMO · PORTAL · DEPLOY guides
 └── .github/workflows          # CI: lint, types, tests, build, anchor
 ```
 
 Deep dives:
 
-- **[docs/DEMO.md](docs/DEMO.md)** — the three-minute walkthrough, judged beat by beat
-- **[docs/PORTAL.md](docs/PORTAL.md)** — submission portal status log
-- **[docs/DEPLOY.md](docs/DEPLOY.md)** — hosting the app and upgrading programs
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — how to help build the market
 - **[CHANGELOG.md](CHANGELOG.md)** — what shipped, and when
 
