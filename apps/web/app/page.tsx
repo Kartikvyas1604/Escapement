@@ -1,11 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-
-const stats = [
-  { value: "500ms", label: "Min tick cadence" },
-  { value: "0", label: "Signatures per tick" },
-  { value: "1 tx", label: "Fee settle on Solana" },
-];
+import { LiveStats } from "@/components/live-stats";
 
 export default function Home() {
   return (
@@ -37,21 +32,7 @@ export default function Home() {
             How it works
           </Link>
         </div>
-        <dl className="grid w-full grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
-          {stats.map((stat) => (
-            <div
-              key={stat.label}
-              className="flex flex-col bg-card px-4 py-5 md:px-6"
-            >
-              <dt className="order-2 text-xs text-muted-foreground">
-                {stat.label}
-              </dt>
-              <dd className="order-1 mb-1 font-mono text-2xl font-semibold tabular-nums">
-                {stat.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <LiveStats />
       </section>
 
       <section
