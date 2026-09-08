@@ -68,6 +68,26 @@ if (!marketInfo) {
   console.log("market already initialized:", market.toBase58());
 }
 
+// The vault PDA must be rent-exempt before it can receive escrowed fees.
+const vaultInfo = await connection.getAccountInfo(vault);
+const rentExempt = await connection.getMinimumBalanceForRentExemption(0);
+if (!vaultInfo || vaultInfo.lamports < rentExempt) {
+  const sig = await sendAndConfirmTransaction(
+    connection,
+    new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: vault,
+        lamports: Math.max(rentExempt, 0) - (vaultInfo?.lamports ?? 0) + 1_000_000,
+      })
+    ),
+    [payer]
+  );
+  console.log(`fund vault: ${sig}`);
+} else {
+  console.log("vault funded:", vaultInfo.lamports, "lamports");
+}
+
 if (!registeredInfo) {
   const ix = new TransactionInstruction({
     keys: [

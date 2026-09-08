@@ -14,5 +14,8 @@
     "test": "npm run test -w packages/escapement-client",
     "program:build": "anchor build",
     "program:test": "anchor test"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.13"
   }
 }
