@@ -44,13 +44,15 @@ pub fn handle_settle_fees(ctx: Context<SettleFees>) -> Result<()> {
         .and_then(|v| u64::try_from(v).ok())
         .ok_or(EscapementError::Overflow))?;
 
+    let vault_signer = &[VAULT_SEED, &[ctx.bumps.vault]];
     system_program::transfer(
-        CpiContext::new(
+        CpiContext::new_with_signer(
             system_program::ID,
             system_program::Transfer {
                 from: ctx.accounts.vault.to_account_info(),
                 to: ctx.accounts.fee_receiver.to_account_info(),
             },
+            &[vault_signer],
         ),
         settled,
     )?;

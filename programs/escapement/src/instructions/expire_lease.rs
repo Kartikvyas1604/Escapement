@@ -48,13 +48,15 @@ pub fn handle_expire_lease(ctx: Context<ExpireLease>) -> Result<()> {
 
     let swept = lease.fee_prepaid.saturating_sub(lease.fee_settled);
     if swept > 0 {
+        let vault_signer = &[VAULT_SEED, &[ctx.bumps.vault]];
         system_program::transfer(
-            CpiContext::new(
+            CpiContext::new_with_signer(
                 system_program::ID,
                 system_program::Transfer {
                     from: ctx.accounts.vault.to_account_info(),
                     to: ctx.accounts.fee_receiver.to_account_info(),
                 },
+                &[vault_signer],
             ),
             swept,
         )?;
