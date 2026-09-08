@@ -1,0 +1,21 @@
+skip_local_validator = true
+
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+escapement = "KKAQbHv1YAHo3wAAVETEQGaPBix5tRHWdXcb4G28V6z"
+escapement_template = "E52t2PvfqcE71MGafrLPJBgXN74WdRmkzUk9aBLLLHfi"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test"
+
+[hooks]
+post_build = "node scripts/copy-idl.mjs"

@@ -27,6 +27,7 @@ test-ledger/
 !postcss.config.mjs
 !eslint.config.mjs
 !vercel.json
+!idls/*.json
 apps/web/public/**/*.json
 
 # misc
