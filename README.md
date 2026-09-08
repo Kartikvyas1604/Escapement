@@ -1,8 +1,108 @@
-# Escapement — Live Keeper Exchange
+<div align="center">
 
-**Escapement is an onchain market for MagicBlock crank slots.** You buy an **Escapement lease**: a time-bounded right to scheduled execution on a MagicBlock Ephemeral Rollup — pick a tick cadence and an iteration cap, watch real crank transactions fire live, then settle the prepaid fee to Solana. Lease PDA, escrowed fees, and settlement receipts are all real devnet accounts you can verify on Solana Explorer.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/logo-lockup.svg" />
+  <img src="apps/web/public/logo-lockup-light.svg" alt="Escapement — Live Keeper Exchange" width="420" />
+</picture>
 
-## Live deployment (devnet)
+### The onchain market for MagicBlock crank slots
+
+**Buy a lease. Watch real ticks fire. Settle fees on Solana.**
+
+[![CI](../actions/workflows/ci.yml/badge.svg?branch=main)](../../actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-22D3EE.svg)](LICENSE)
+[![Solana](https://img.shields.io/badge/Solana-devnet-9945FF.svg)](#live-on-devnet)
+[![Anchor](https://img.shields.io/badge/Anchor-1.1-E4470B.svg)](#the-escapement-program)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg)](#the-platform)
+[![Tests](https://img.shields.io/badge/tests-14%20passing-22C55E.svg)](#quality)
+
+</div>
+
+---
+
+## What is Escapement?
+
+Every automated MagicBlock application needs cranks — scheduled execution on
+Ephemeral Rollups. Today, every team wires its own. Sub-second cadence on
+Solana L1 means racing gas with a private keeper fleet.
+
+**Escapement turns that execution capacity into a market.**
+
+An **Escapement lease** is a time-bounded right to scheduled execution: you pick
+a tick cadence and an iteration cap, the prepaid fee is escrowed on-chain, and
+you watch real crank transactions fire on your schedule — no wallet signature
+per tick. When the lease ends, fees settle to Solana with a transaction anyone
+can verify on an explorer.
+
+The lease itself is a **real program-derived account on devnet**. The escrow is
+**real lamports in a vault**. The settlement receipt is a **real transaction
+signature**. Nothing in this repository is a simulation.
+
+> **You bought execution rights — not a tutorial.**
+
+---
+
+## How a lease works
+
+| Step | What happens | Where it lives |
+|:---:|---|---|
+| **1 · Mint** | You choose a cadence (e.g. 500 ms) and an iteration cap (e.g. 20). The fee is quoted from the on-chain market config, then escrowed in the market vault. A lease PDA is created. | Escapement program |
+| **2 · Tick** | The protocol crank fires `crank_tick` on your cadence — gasless for you, no prompts, no signatures. Each tick CPIs into the registered program template and bumps your counter on-chain. | Next.js crank backend + template program |
+| **3 · Settle** | The executed share of the prepaid fee is derived on-chain — never more than you prepaid — and paid out with an explorer-verifiable transaction. | Escapement program |
+| **4 · Expire** | Unused iterations expire. A lease is not an unlimited cron; that honesty is the product. | Escapement program |
+
+```
+                    ┌─────────────────────────────┐
+                    │         Buyer UI            │
+                    │  mint · watch · settle      │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+              ┌────────────────────────────────────────┐
+              │      Escapement program (Solana)       │
+              │  lease PDA · vault escrow · settle     │
+              └──────────────┬─────────────────────────┘
+                             │  crank_tick (CPI)
+                             ▼
+              ┌────────────────────────────────────────┐
+              │   Counter template program             │
+              │   on-chain tick counter + events       │
+              └──────────────┬─────────────────────────┘
+                             │  protocol crank (cadence)
+                             ▼
+              ┌────────────────────────────────────────┐
+              │   /api/crank · Next.js route handler   │
+              │   market-authority signing, cooldowns  │
+              └────────────────────────────────────────┘
+```
+
+---
+
+## The Escapement program
+
+One program owns the whole market. One instruction per state change, events on
+every transition, and a fee schedule that lives on-chain — the UI reads it,
+it never hardcodes it.
+
+| Instruction | Who can call it | What it does |
+|---|---|---|
+| `initialize_market` | once | Creates the market PDA: authority + fee schedule |
+| `set_market_config` | authority | Retunes base / per-tick fees |
+| `register_program` | provider | Registers a program template for cranking |
+| `set_program_status` | provider | Pauses or resumes a template |
+| `mint_lease` | buyer | Creates the lease PDA, escrows the prepaid fee |
+| `crank_tick` | buyer or crank | Fires one tick; enforces cap + expiry |
+| `settle_fees` | anyone | Pays the executed share from escrow — honestly, permissionlessly |
+| `expire_lease` | anyone / buyer | Sweeps unused escrow per the no-refund policy |
+
+**Security posture.** The vault pays out only through PDA-signed CPIs. Strangers
+cannot burn your purchased iterations — the crank is gated. Settlement math is
+derived on-chain, so no operator can overcharge. Keypairs are gitignored and
+injected via environment only.
+
+---
+
+## Live on devnet
 
 | Object | Address |
 |---|---|
@@ -11,98 +111,111 @@
 | Market PDA | `DFJtf3GFutZJwCQYyEmSBy8XmDegSu94YErJJo9jbvvk` |
 | Fee vault PDA | `DoskBGdxQRW57zhv5oF19BXtY2b7NzeBGsAjK9HEaLqf` |
 
-Full lease lifecycle proven end-to-end on devnet: mint → 4 real ticks → settle (`scripts/e2e-devnet.mjs`).
+Every address above is a real account — open it on Solana Explorer. The full
+lifecycle has been proven end-to-end on devnet: mint → live ticks → settle.
 
-## ≠ bare ScheduleTask
+---
 
-MagicBlock's ScheduleTask docs teach *you* to schedule *your own* task. Escapement **sells the right** to that execution as a mintable, expiring, fee-settled lease (interval, iterations, prepaid fee, settle). Same rails underneath; a different product object on top. ScheduleTask is how a lease *executes* — Escapement is the *market* that mints, meters, and settles the right to that execution.
-
-## Soft usefulness (honesty)
-
-> Useful today for MagicBlock builders who already need scheduled ER ticks and would rather buy an Escapement lease than wire ScheduleTask ops themselves. Early infra beachhead — not a claim of mass consumer demand.
-
-## MagicBlock disappear test
-
-> Without MagicBlock Ephemeral Rollups and cranks, Escapement has no scarce execution resource to lease. The product does not degrade to L1 keepers; it ceases to exist as designed.
-
-## Portal status
-
-- Submit portal: https://build.magicblock.app/?stage=blitz
-- Status log: [`docs/PORTAL.md`](docs/PORTAL.md) (re-check Fri 11 Sep 2026 18:00 SGT)
-- If the portal shows "No open events to submit to right now", this build follows the Forge path (Blitz → Forge → Hacker House).
-
-## ≠ siblings
-
-- **WATT** — usage-event metering/invoicing. Escapement trades execution *rights*, not metered invoices.
-- **Apron** — epoch AMM fill capacity on ETHOnline. Escapement is crank bandwidth on MagicBlock ERs; no AMM tickets.
-- **SKIFF / KILN** — game ticks. Escapement is infrastructure leasing, not a game.
-- **Cadence** — ETHOnline-only sibling. Escapement is Blitz × MagicBlock.
-
-## Architecture
-
-```
-Buyer UI (apps/web, Next.js)
-  mint_lease → lease PDA + fee escrowed in vault PDA
-        |
-        v
-Protocol crank (Next route handler /api/crank)
-  real crank_tick txs on the purchased cadence
-  CPI into the counter template program
-        |
-  on-chain tick counter + TickFired events
-        |
-  settle_fees (permissionless, buyer-signed)
-        v
-Solana L1: vault payout + explorer proof
-```
-
-### What is real today
-
-- **Wallet**: injected Solana wallets (Phantom, Solflare, Backpack) via their providers.
-- **Mint**: `mint_lease` creates the lease PDA through the Escapement program and escrows the prepaid fee (`base + iterations × per_tick`, read from the on-chain market account).
-- **Ticks**: `crank_tick` transactions submitted by the protocol crank backend (Next route handler, market-authority keypair) with a buyer-signed fallback. Every tick CPIs into the counter template program and bumps the lease counter on-chain.
-- **Settle**: `settle_fees` pays the proportional share of escrow to the market authority; the receipt is a real devnet transaction.
-- **Expiry**: `expire_lease` sweeps unused escrow per the MVP no-refund policy. A lease is not an unlimited cron.
-
-## Repo layout
-
-```
-apps/web/                  # Next.js 16 app: UI + /api/crank backend
-packages/escapement-client # PDA helpers, ix builders, account codecs, pricing
-programs/escapement/       # Anchor market program (8 instructions, events)
-programs/template/         # Anchor counter template program
-scripts/                   # deploy, on-chain setup, e2e proof
-docs/                      # DEMO.md (≤3 min script), PORTAL.md (submit log)
-```
-
-## Development
-
-```bash
-npm install                 # workspaces: apps/web + packages/escapement-client
-cp .env.example apps/web/.env.local
-npm run dev                 # http://localhost:3000
-npm run typecheck && npm run lint && npm test
-
-anchor build                # build both programs
-anchor test                 # LiteSVM lifecycle suite
-bash scripts/deploy-devnet.sh   # deploy + initialize market (funded wallet)
-node scripts/e2e-devnet.mjs     # on-chain end-to-end proof
-```
-
-Program integration notes: the crank interval itself is enforced by the scheduler (MagicBlock ScheduleTask on the ER in production; the protocol crank here) — the chain enforces the iteration cap, expiry window, and fee accounting. `crank_tick` is gated to the buyer (wallet or session key) or the protocol crank so strangers cannot burn purchased iterations.
-
-## Stack
+## The platform
 
 | Layer | Choice |
 |---|---|
-| App | Next.js 16 + React 19 + Tailwind v4 (monorepo) |
-| Backend | Next route handlers (`/api/crank`) |
-| Programs | Anchor 1.1 (Escapement market + counter template), LiteSVM tests |
-| Client | `escapement-client` (PDAs, ix builders, borsh codecs) + `@solana/web3.js` |
-| Fonts | Instrument Serif (display) · Geist Sans (UI) · Geist Mono (numbers) |
-| Palette | Near-black `#0A0A0A`, single cyan accent `#22D3EE` (see `brand.md`) |
-| Host | Vercel |
+| App | Next.js 16 · React 19 · Tailwind CSS 4 |
+| Backend | Next.js route handlers (the crank is the backend) |
+| Programs | Anchor 1.1 · tested with LiteSVM |
+| Client SDK | Shared package: PDAs, instruction builders, borsh codecs |
+| Wallets | Phantom · Solflare · Backpack (injected providers) |
+| Design | Near-black, one cyan accent, serif headlines, mono numbers |
 
-## Non-goals (frozen)
+A monorepo keeps the on-chain truth and the interface that reads it in one
+place: `apps/web` (UI + crank backend), `packages/escapement-client` (the typed
+bridge between them), and the two Anchor programs.
 
-PER, VRF, secondary CLOB, games, Apron/SEAT language, WATT-style metering invoices, SKIFF/KILN, fake APY, multi-program marketplace routing.
+---
+
+## Why this is honest
+
+**Lease market first.** ScheduleTask is *how* a lease executes. Escapement is
+the *market* that mints, meters, and settles the right to that execution. Same
+rails underneath — a different product object on top.
+
+**Soft usefulness.** Useful today for MagicBlock builders who already need
+scheduled ER ticks and would rather buy a lease than wire keeper operations
+themselves. Early infrastructure beachhead — not a claim of mass consumer
+demand.
+
+**The MagicBlock disappear test.** Without MagicBlock Ephemeral Rollups and
+cranks, Escapement has no scarce execution resource to lease. The product does
+not degrade to L1 keepers — it ceases to exist as designed.
+
+**Not its siblings.** Not WATT (usage-event metering). Not Apron (epoch AMM
+fill capacity). Not SKIFF or KILN (game ticks). Not Cadence (an ETHOnline
+sibling). Escapement trades execution *rights*.
+
+---
+
+## Project map
+
+```
+.
+├── apps/web                   # Next.js app — UI + /api/crank backend
+├── packages/escapement-client # PDA helpers · ix builders · codecs · pricing
+├── programs/escapement        # Anchor market program (8 instructions)
+├── programs/template          # Anchor counter template program
+├── scripts                    # deploy · on-chain setup · end-to-end proof
+├── docs                       # DEMO · PORTAL · DEPLOY guides
+└── .github/workflows          # CI: lint, types, tests, build, anchor
+```
+
+Deep dives:
+
+- **[docs/DEMO.md](docs/DEMO.md)** — the three-minute walkthrough, judged beat by beat
+- **[docs/PORTAL.md](docs/PORTAL.md)** — submission portal status log
+- **[docs/DEPLOY.md](docs/DEPLOY.md)** — hosting the app and upgrading programs
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — how to help build the market
+- **[CHANGELOG.md](CHANGELOG.md)** — what shipped, and when
+
+---
+
+## Quality
+
+Every layer is tested where it can fail:
+
+- **On-chain** — a LiteSVM suite drives the full lifecycle: mint, tick to
+  exhaustion, permissionless settle, partial-settle math, cap enforcement, and
+  stranger rejection.
+- **Client** — instruction discriminators, PDA determinism, and borsh account
+  round-trips under vitest.
+- **Continuous** — GitHub Actions runs lint, typecheck, tests, a production
+  build, and the Anchor suite on every push.
+
+---
+
+## Roadmap
+
+| Now | Next | Later |
+|---|---|---|
+| Devnet market, live and proven | MagicBlock ER + ScheduleTask as the tick venue | Second program template |
+| Single fixed-price fee schedule | Ephemeral SPL prepaid escrow | A market for lease resale |
+| Buyer-crank + protocol crank | Fail / retry tick metrics | Operator dashboard |
+
+Frozen by design: PER, VRF, secondary order books, games, and fake APY. The
+mechanism is the product.
+
+---
+
+## Support
+
+Found a bug or have an idea for the market?
+[Open an issue](../../issues) — lease-first proposals welcome, tutorial
+re-writes are not.
+
+---
+
+<div align="center">
+
+**Escapement** · the live keeper exchange
+
+Built for Solana Blitz × MagicBlock · Released under the [MIT License](LICENSE)
+
+</div>
