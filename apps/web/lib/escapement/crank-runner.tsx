@@ -15,8 +15,12 @@ export function CrankRunner() {
   const leasePda = lease?.leasePda;
 
   useEffect(() => {
-    if (!isActive || intervalMs <= 0) return;
+    // Recover lease state from the chain on load, even when settled/expired.
     void syncLease();
+  }, [leasePda]);
+
+  useEffect(() => {
+    if (!isActive || intervalMs <= 0) return;
     const crank = window.setInterval(() => void crankTick(), intervalMs);
     const poll = window.setInterval(() => void syncLease(), 1000);
     return () => {
