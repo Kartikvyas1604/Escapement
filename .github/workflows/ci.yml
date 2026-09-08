@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    name: Web (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -w packages/escapement-client
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_CLUSTER: devnet
+          NEXT_PUBLIC_ESCAPEMENT_PROGRAM_ID: KKAQbHv1YAHo3wAAVETEQGaPBix5tRHWdXcb4G28V6z
+          NEXT_PUBLIC_TEMPLATE_PROGRAM_ID: E52t2PvfqcE71MGafrLPJBgXN74WdRmkzUk9aBLLLHfi
+
+  programs:
+    name: Programs (anchor build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/solana-foundation/anchor --tag v1.1.2 anchor-cli --locked
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-anchor-${{ hashFiles('programs/**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-anchor-
+      - run: anchor build
+      - run: anchor test
