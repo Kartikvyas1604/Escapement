@@ -85,6 +85,23 @@ function persist() {
   }
 }
 
+/** Minimal runtime shape check for a persisted lease before it is trusted. */
+function isValidStoredLease(v: unknown): v is EscapementLease {
+  if (typeof v !== "object" || v === null) return false;
+  const l = v as Record<string, unknown>;
+  return (
+    typeof l.leasePda === "string" &&
+    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(l.leasePda) &&
+    typeof l.buyer === "string" &&
+    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(l.buyer) &&
+    typeof l.intervalMs === "number" &&
+    typeof l.iterations === "number" &&
+    typeof l.iterationsDone === "number" &&
+    typeof l.feePrepaidLamports === "number" &&
+    typeof l.status === "string"
+  );
+}
+
 function getSnapshot(): EscState {
   return state;
 }
@@ -96,12 +113,29 @@ function subscribe(listener: () => void) {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as Pick<EscState, "lease" | "ticks" | "receipt">;
+        // Trust nothing blindly: a tampered or corrupted payload is dropped
+        // rather than fed into PDAs and explorer links.
+        const lease =
+          saved.lease && isValidStoredLease(saved.lease) ? saved.lease : null;
+        const ticks = Array.isArray(saved.ticks)
+          ? saved.ticks.filter(
+              (t): t is TickReceipt =>
+                typeof t === "object" &&
+                t !== null &&
+                typeof (t as TickReceipt).seq === "number"
+            )
+          : [];
+        const receipt = saved.receipt && typeof saved.receipt.txSig === "string" ? saved.receipt : null;
         if (
-          saved.lease?.status === "Active" &&
-          Date.now() > saved.lease.expiresAt + 60_000
+          lease?.status === "Active" &&
+          Date.now() > lease.expiresAt + 60_000
         ) {
-          saved.lease = { ...saved.lease, status: "Expired" };
+          saved.lease = { ...lease, status: "Expired" };
+        } else {
+          saved.lease = lease;
         }
+        saved.ticks = ticks;
+        saved.receipt = receipt;
         state = { ...SERVER_STATE, ...saved };
       }
     } catch {
@@ -467,4 +501,45 @@ export function clearLease(): void {
   }
   state = { ...SERVER_STATE, hydrated: true, market: state.market };
   listeners.forEach((l) => l());
+}
+
+// ---------------------------------------------------------------------------
+// Cross-tab + wallet-account reconciliation
+// ---------------------------------------------------------------------------
+
+if (typeof window !== "undefined") {
+  // Two tabs sharing one lease must agree instead of fighting over the
+  // tick feed — adopt whatever the other tab persisted.
+  window.addEventListener("storage", (e) => {
+    if (e.key !== STORAGE_KEY || e.storageArea !== window.localStorage) return;
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Pick<EscState, "lease" | "ticks" | "receipt">;
+      const lease = saved.lease && isValidStoredLease(saved.lease) ? saved.lease : null;
+      const ticks = Array.isArray(saved.ticks)
+        ? saved.ticks.filter(
+            (t): t is TickReceipt =>
+              typeof t === "object" &&
+              t !== null &&
+              typeof (t as TickReceipt).seq === "number"
+          )
+        : [];
+      // Adopt without persisting — the other tab already wrote the data.
+      state = { ...state, lease, ticks, receipt: saved.receipt ?? null };
+      listeners.forEach((l) => l());
+    } catch {
+      // Malformed cross-tab payload — ignore, local state is untouched.
+    }
+  });
+
+  // If the connected wallet account changes to one that does not own the
+  // stored lease, stop showing that lease.
+  window.addEventListener("escapement:account", () => {
+    const lease = state.lease;
+    const pk = getActiveProvider()?.publicKey;
+    if (lease && pk && lease.buyer !== pk.toString()) {
+      clearLease();
+    }
+  });
 }

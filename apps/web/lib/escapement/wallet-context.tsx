@@ -142,9 +142,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setPublicKey(null);
       setWalletName(null);
       setState("disconnected");
+      window.dispatchEvent(new Event("escapement:account"));
       return;
     }
     setPublicKey(next.toString());
+    window.dispatchEvent(new Event("escapement:account"));
   }, []);
 
   const restoreRan = useRef(false);
