@@ -28,13 +28,30 @@ import {
 } from "escapement-client";
 
 const WALLET_PATH = process.env.WALLET_PATH ?? `${process.env.HOME}/.config/solana/id.json`;
+const CLUSTER_URL = process.env.CLUSTER_URL ?? "https://api.devnet.solana.com";
 const INTERVAL_MS = Number(process.env.E2E_INTERVAL_MS ?? 500);
 const ITERATIONS = Number(process.env.E2E_ITERATIONS ?? 4);
+
+if (!Number.isInteger(INTERVAL_MS) || INTERVAL_MS < 100 || INTERVAL_MS > 2000) {
+  console.error("E2E_INTERVAL_MS must be an integer in [100, 2000] (program bounds).");
+  process.exit(1);
+}
+if (!Number.isInteger(ITERATIONS) || ITERATIONS < 1 || ITERATIONS > 100) {
+  console.error("E2E_ITERATIONS must be an integer in [1, 100] (program bounds).");
+  process.exit(1);
+}
 
 const payer = Keypair.fromSecretKey(
   Uint8Array.from(JSON.parse(fs.readFileSync(WALLET_PATH, "utf8")))
 );
-const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const connection = new Connection(CLUSTER_URL, "confirmed");
+
+const balance = await connection.getBalance(payer.publicKey);
+console.log("payer:", payer.publicKey.toBase58(), `balance: ${balance / 1e9} SOL`);
+if (balance < 0.05e9) {
+  console.error("Payer has too little SOL to mint + crank + settle on devnet. Fund it first.");
+  process.exit(1);
+}
 
 const market = marketPda();
 const marketAccount = decodeMarket(

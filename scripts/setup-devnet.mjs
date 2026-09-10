@@ -47,6 +47,21 @@ const registeredProgram = findPda(
 const marketInfo = await connection.getAccountInfo(market);
 const registeredInfo = await connection.getAccountInfo(registeredProgram);
 
+if (marketInfo && marketInfo.data.length > 0) {
+  // Read back the live fee schedule and flag drift against the env config so
+  // a stale FEE_BASE / FEE_PER_TICK cannot silently diverge from the chain.
+  const data = marketInfo.data;
+  const onChainFeeBase = Number(data.readBigUInt64LE(8 + 32));
+  const onChainFeePerTick = Number(data.readBigUInt64LE(8 + 32 + 8));
+  if (onChainFeeBase !== FEE_BASE || onChainFeePerTick !== FEE_PER_TICK) {
+    console.warn(
+      `WARNING: on-chain fees (base=${onChainFeeBase}, per_tick=${onChainFeePerTick}) ` +
+        `differ from env (base=${FEE_BASE}, per_tick=${FEE_PER_TICK}). ` +
+        "The chain wins — retune via set_market_config or fix your env."
+    );
+  }
+}
+
 if (!marketInfo) {
   const ix = new TransactionInstruction({
     keys: [
