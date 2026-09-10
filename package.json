@@ -13,7 +13,10 @@
     "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w packages/escapement-client",
     "test": "npm run test -w packages/escapement-client",
     "program:build": "anchor build",
-    "program:test": "anchor test"
+    "program:test": "anchor test",
+    "program:deploy": "bash scripts/deploy-devnet.sh",
+    "program:setup": "tsx scripts/setup-devnet.mjs",
+    "program:e2e": "tsx scripts/e2e-devnet.mjs"
   },
   "devDependencies": {
     "tsx": "^4.23.13"

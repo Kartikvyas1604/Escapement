@@ -21,11 +21,13 @@ fi
 echo "wallet balance: ${BALANCE} SOL — deploying"
 
 solana program deploy --url "$URL" --keypair "$WALLET" \
+  --upgrade-authority "$WALLET" \
   --program-id programs/template/template-keypair.json \
   --max-len 160000 \
   target/deploy/escapement_template.so
 
 solana program deploy --url "$URL" --keypair "$WALLET" \
+  --upgrade-authority "$WALLET" \
   --program-id programs/escapement/escapement-keypair.json \
   --max-len 272000 \
   target/deploy/escapement.so

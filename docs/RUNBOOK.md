@@ -23,17 +23,25 @@ Redeploy from source: push `main`; CI gates the merge.
 
 ## Program upgrade
 
-The program is deployable with its local keypair (gitignored, present in
-`programs/escapement/escapement-keypair.json`):
+The program is deployable with the funded authority wallet (default
+`~/.config/solana/id.json`):
 
 ```bash
-bash scripts/deploy-devnet.sh   # builds + deploys both programs + setup
+npm run program:deploy    # builds + deploys both programs + idempotent setup
+npm run program:e2e       # full devnet proof: mint → ticks → settle
 ```
 
 An upgrade deploy keeps the program id, so PDAs, leases, and the vault stay
-valid. **Never** change account layouts without a reallocation plan — current
-account sizes are frozen (Lease 162 B, Market 57 B, Counter 48 B) and the
-client enforces them strictly.
+valid. The deploy script pins `--upgrade-authority "$WALLET"` so upgrades
+never rotate authority. **Never** change account layouts without a
+reallocation plan — current account sizes are frozen (Lease 162 B, Market
+57 B, Counter 48 B) and the client enforces them strictly.
+
+### Upgrade log
+
+| Date | Program | Tx | Note |
+|---|---|---|---|
+| 2026-09-10 | Escapement | `31vvhtWhaTEfMDLHfKPWcDXRDggj2K5h3W6yV7jFP1G2aWftbvarnyQxp529SVD8uhY4YRh9ohbkzS8YWu5g2Ltv` | incremental settle + on-chain lease bounds; e2e proof re-run green |
 
 ## Crank keypair rotation
 
