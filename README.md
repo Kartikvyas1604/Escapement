@@ -112,7 +112,12 @@ injected via environment only.
 | Fee vault PDA | `DoskBGdxQRW57zhv5oF19BXtY2b7NzeBGsAjK9HEaLqf` |
 
 Every address above is a real account — open it on Solana Explorer. The full
-lifecycle has been proven end-to-end on devnet: mint → live ticks → settle.
+lifecycle has been proven end-to-end on devnet: mint → live ticks → settle
+(lease `5xCUQTS7DC453nQLunDtuSafLJnGdYNSt6jTDkfJkKWM`, settle tx
+`5CVtv7puXQ3e71QWVHLzRo5UDcQWD6NGZ1oqHFUsPCjFeTkGgCNShj7fQ6wvvwWHNALKUgvkUBvxbdSmXDuhgCnn`).
+The program was upgraded in place on 2026-09-10 (upgrade tx
+`31vvhtWhaTEfMDLHfKPWcDXRDggj2K5h3W6yV7jFP1G2aWftbvarnyQxp529SVD8uhY4YRh9ohbkzS8YWu5g2Ltv`) —
+same id, same authority, same PDAs.
 
 ---
 
