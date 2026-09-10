@@ -16,7 +16,7 @@ export function SiteFooter() {
         <p className="text-xs text-muted-foreground">
           Devnet demo. No accounts, no personal data — fees and leases are
           on-chain only. Cookie-less page analytics only. Anything you sign is
-          your wallet's business.
+          your wallet&apos;s business.
         </p>
       </div>
     </footer>
