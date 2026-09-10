@@ -59,7 +59,79 @@ function cooldownRemaining(leasePda: string, intervalMs: number): number {
   return Math.max(0, intervalMs - elapsed);
 }
 
+/**
+ * Per-IP fixed-window rate limit. The endpoint signs as the protocol crank,
+ * so abuse here burns buyer-prepaid iterations or spams the network — keep
+ * the surface tight. Entries are pruned so the map cannot grow unbounded.
+ */
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX_REQUESTS = 60;
+const rateBuckets = new Map<string, { windowStart: number; count: number }>();
+
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const bucket = rateBuckets.get(ip);
+  if (!bucket || now - bucket.windowStart >= RATE_WINDOW_MS) {
+    rateBuckets.set(ip, { windowStart: now, count: 1 });
+  } else {
+    bucket.count += 1;
+    if (bucket.count > RATE_MAX_REQUESTS) return true;
+  }
+  if (rateBuckets.size > 10_000) {
+    for (const [key, b] of rateBuckets) {
+      if (now - b.windowStart >= RATE_WINDOW_MS) rateBuckets.delete(key);
+      if (rateBuckets.size <= 5_000) break;
+    }
+  }
+  return false;
+}
+
+function clientIp(request: Request): string {
+  const fwd = request.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0]!.trim();
+  return request.headers.get("x-real-ip") ?? "unknown";
+}
+
+/**
+ * Same-origin enforcement: a browser POST always carries an Origin header;
+ * reject cross-site requests (the crank UI posts from its own origin).
+ */
+function sameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    const originHost = new URL(origin).host;
+    const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+    if (!host) return false;
+    return originHost === host;
+  } catch {
+    return false;
+  }
+}
+
+/** Cooldown-map pruning so long-running instances do not leak memory. */
+function pruneCooldowns() {
+  if (lastCrankAt.size <= 10_000) return;
+  for (const key of lastCrankAt.keys()) {
+    lastCrankAt.delete(key);
+    if (lastCrankAt.size <= 5_000) break;
+  }
+}
+
 export async function POST(request: Request) {
+  if (!sameOrigin(request)) {
+    return NextResponse.json(
+      { error: "Cross-origin crank requests are rejected." },
+      { status: 403 }
+    );
+  }
+  if (rateLimited(clientIp(request))) {
+    return NextResponse.json(
+      { error: "Too many crank requests from this address. Try again shortly." },
+      { status: 429 }
+    );
+  }
+
   const authority = crankKeypair();
   if (!authority) {
     return NextResponse.json(
@@ -120,10 +192,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // The market authority (this keypair) or the buyer may crank.
+  // The market authority (this keypair) or the buyer may crank. The program
+  // enforces buyer-or-authority; a stranger cannot crank without a signature.
   const market = marketPda();
-  const isAuthority = lease.buyer === authority.publicKey.toBase58() || true; // authority may crank any lease
-  void isAuthority;
 
   const tx = new Transaction().add(
     new TransactionInstruction({
@@ -144,6 +215,7 @@ export async function POST(request: Request) {
   try {
     const signature = await sendWithTimeout(tx, authority);
     lastCrankAt.set(leasePkey.toBase58(), Date.now());
+    pruneCooldowns();
     return NextResponse.json({
       txSig: signature,
       lease: { iterationsDone: lease.iterationsDone + 1 },
