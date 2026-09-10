@@ -8,7 +8,29 @@ function num(name: string, fallback: number): number {
   const raw = env(name);
   if (!raw) return fallback;
   const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    console.warn(
+      `escapement-client: ${name}="${raw}" is not a valid number — using default ${fallback}.`
+    );
+    return fallback;
+  }
+  return parsed;
+}
+
+function nums(name: string, fallback: readonly number[]): number[] {
+  const raw = env(name);
+  if (!raw) return [...fallback];
+  const parsed = raw
+    .split(",")
+    .map((v) => Number(v.trim()))
+    .filter((v) => Number.isFinite(v) && v > 0);
+  if (parsed.length === 0) {
+    console.warn(
+      `escapement-client: ${name}="${raw}" is not a valid list — using defaults.`
+    );
+    return [...fallback];
+  }
+  return parsed;
 }
 
 const CLUSTER = (env("NEXT_PUBLIC_CLUSTER") ?? "devnet") as Cluster;
@@ -42,7 +64,7 @@ export const PRICING = {
   intervalMaxMs: num("NEXT_PUBLIC_INTERVAL_MAX_MS", 2000),
   iterationsMin: num("NEXT_PUBLIC_ITERATIONS_MIN", 1),
   iterationsMax: num("NEXT_PUBLIC_ITERATIONS_MAX", 100),
-  presetsMs: [250, 500, 1000],
+  presetsMs: nums("NEXT_PUBLIC_PRESETS_MS", [250, 500, 1000]),
 } as const;
 
 export function txExplorerUrl(txSig: string): string {

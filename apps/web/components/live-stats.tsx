@@ -9,19 +9,19 @@ import {
   decodeMarket,
   marketPda,
   PRICING,
+  COUNTER_ACCOUNT_SIZE,
+  COUNTER_COUNT_OFFSET,
+  LEASE_ACCOUNT_SIZE,
 } from "escapement-client";
 
 /**
  * Live on-chain stats strip. Reads the deployed programs directly from the
  * configured RPC: the fee schedule from the market account, the number of
- * leases minted (Lease accounts are 162 bytes), and the total ticks cranked
- * (Counter accounts are 48 bytes; the count is the u64 at offset 40).
+ * leases minted, and the total ticks cranked.
  *
- * Falls back to the env-configured fee schedule when the RPC is unreachable.
+ * Falls back to the env-configured fee schedule when the RPC is unreachable —
+ * and says so, instead of pretending the number came from the chain.
  */
-
-const LEASE_ACCOUNT_SIZE = 8 + 154; // discriminator + Lease::INIT_SPACE
-const COUNTER_ACCOUNT_SIZE = 8 + 32 + 8; // discriminator + lease pubkey + count
 
 interface LiveStats {
   feePerTickLamports: number | null;
@@ -78,7 +78,7 @@ export function LiveStats() {
           const count = new DataView(
             account.data.buffer,
             account.data.byteOffset
-          ).getBigUint64(40, true);
+          ).getBigUint64(COUNTER_COUNT_OFFSET, true);
           return sum + Number(count);
         }, 0);
       } catch {
@@ -100,7 +100,9 @@ export function LiveStats() {
       value: stats.feePerTickLamports === null
         ? formatSol(PRICING.perTickLamports)
         : formatSol(stats.feePerTickLamports),
-      label: "Fee per tick · read from the market account",
+      label: stats.feePerTickLamports === null
+        ? "Fee per tick · env fallback (market RPC unreachable)"
+        : "Fee per tick · read from the market account",
     },
     {
       value: stats.leases === null ? "—" : formatCount(stats.leases),

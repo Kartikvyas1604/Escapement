@@ -299,6 +299,11 @@ export const MARKET_ACCOUNT_SIZE = 8 + 49;
 export const BUYER_STATE_ACCOUNT_SIZE = 8 + 4;
 export const REGISTERED_PROGRAM_ACCOUNT_SIZE = 8 + 74;
 
+/** Counter template account (template program): discriminator + lease pubkey + count. */
+export const COUNTER_ACCOUNT_SIZE = 8 + 32 + 8;
+/** Byte offset of the u64 tick count inside a Counter account. */
+export const COUNTER_COUNT_OFFSET = 40;
+
 function expectDiscriminator(
   data: Uint8Array,
   expected: Uint8Array,
