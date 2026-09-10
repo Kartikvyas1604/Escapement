@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { LeaseView } from "@/components/lease-view";
 
 export const metadata: Metadata = {
-  title: "Live lease — Escapement",
+  title: "Live lease",
+  alternates: { canonical: "/lease" },
   description:
     "Watch your Escapement lease fire ticks live on the MagicBlock ephemeral rollup, then settle fees to Solana.",
 };

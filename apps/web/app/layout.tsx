@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { CrankRunner } from "@/lib/escapement/crank-runner";
 import { WalletProvider } from "@/lib/escapement/wallet-context";
+import { SITE_URL } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +31,8 @@ export const metadata: Metadata = {
   },
   description:
     "Buy an Escapement lease: time-bounded MagicBlock crank bandwidth for your program, with live gasless ticks and Solana fee settlement.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://escapement.vercel.app"),
+  metadataBase: new URL(SITE_URL),
+  alternates: { canonical: "/" },
   openGraph: {
     title: "Escapement — Live Keeper Exchange",
     description:

@@ -1,11 +1,11 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://escapement.vercel.app";
   const now = new Date();
   return [
-    { url: base, lastModified: now, changeFrequency: "weekly", priority: 1 },
-    { url: `${base}/mint`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
-    { url: `${base}/lease`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: SITE_URL, lastModified: now, changeFrequency: "weekly", priority: 1 },
+    { url: `${SITE_URL}/mint`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${SITE_URL}/lease`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
   ];
 }

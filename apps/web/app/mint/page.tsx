@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { MintForm } from "@/components/mint-form";
 
 export const metadata: Metadata = {
-  title: "Buy an Escapement lease — Escapement",
+  title: "Buy an Escapement lease",
+  alternates: { canonical: "/mint" },
   description:
     "Mint a lease: pick tick cadence, iteration cap, and see the prepaid fee before you sign.",
 };
