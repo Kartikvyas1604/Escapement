@@ -10,7 +10,7 @@ export function WalletButton() {
   const { state, publicKey, walletName, wallets, error, connect, disconnect } =
     useWallet();
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -20,6 +20,22 @@ export function WalletButton() {
       if (e.key === "Escape") {
         setOpen(false);
         triggerRef.current?.focus();
+        return;
+      }
+      // Roving focus through the menu with arrow keys / Home / End.
+      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
+        const items = Array.from(
+          rootRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []
+        );
+        if (items.length === 0) return;
+        e.preventDefault();
+        const activeIndex = items.indexOf(document.activeElement as HTMLElement);
+        let nextIndex: number;
+        if (e.key === "Home") nextIndex = 0;
+        else if (e.key === "End") nextIndex = items.length - 1;
+        else if (e.key === "ArrowDown") nextIndex = (activeIndex + 1) % items.length;
+        else nextIndex = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
+        items[nextIndex]?.focus();
       }
     }
     function onClick(e: MouseEvent) {
@@ -33,6 +49,13 @@ export function WalletButton() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("mousedown", onClick);
     };
+  }, [open]);
+
+  // Move focus to the first menu item when the menu opens.
+  useEffect(() => {
+    if (!open) return;
+    const first = rootRef.current?.querySelector<HTMLElement>('[role="menuitem"]');
+    first?.focus();
   }, [open]);
 
   if (state !== "connected" || !publicKey) {
@@ -92,11 +115,11 @@ export function WalletButton() {
   async function copyAddress() {
     try {
       await navigator.clipboard.writeText(publicKey ?? "");
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      setCopyState("copied");
     } catch {
-      setOpen(false);
+      setCopyState("failed");
     }
+    window.setTimeout(() => setCopyState("idle"), 1500);
   }
 
   return (
@@ -127,19 +150,23 @@ export function WalletButton() {
               Connected via {walletName}
             </p>
           )}
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => void copyAddress()}
-            className="flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors duration-100 hover:bg-muted focus-visible:outline-none focus-visible:bg-muted"
-          >
-            {copied ? (
-              <Check className="h-4 w-4 text-success" aria-hidden />
-            ) : (
-              <Copy className="h-4 w-4 text-muted-foreground" aria-hidden />
-            )}
-            {copied ? "Copied" : "Copy address"}
-          </button>
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => void copyAddress()}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors duration-100 hover:bg-muted focus-visible:outline-none focus-visible:bg-muted"
+            >
+              {copyState === "copied" ? (
+                <Check className="h-4 w-4 text-success" aria-hidden />
+              ) : (
+                <Copy className="h-4 w-4 text-muted-foreground" aria-hidden />
+              )}
+              {copyState === "copied"
+                ? "Copied"
+                : copyState === "failed"
+                  ? "Copy failed — select the address"
+                  : "Copy address"}
+            </button>
           <a
             role="menuitem"
             href={addressExplorerUrl(publicKey)}

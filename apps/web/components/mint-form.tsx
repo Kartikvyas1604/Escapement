@@ -39,7 +39,9 @@ export function MintForm() {
   const { isMinting, error, lease, market } = useEscapement();
 
   useEffect(() => {
-    if (!market) void fetchMarket();
+    if (!market) void fetchMarket().catch(() => {
+      // Fee preview falls back to env pricing; retry on the next mount.
+    });
   }, [market]);
 
   // Fee schedule is read from the on-chain market config when available.

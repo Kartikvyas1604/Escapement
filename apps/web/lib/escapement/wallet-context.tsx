@@ -188,8 +188,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
       setError(null);
       setState("connecting");
+      // A dismissed wallet popup can leave the promise unresolved forever;
+      // give up rather than spinning "Connecting…" indefinitely.
+      const timeout = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error("Wallet took too long to connect. Try again.")),
+          30_000
+        );
+      });
       try {
-        const res = await target.provider.connect();
+        const res = await Promise.race([target.provider.connect(), timeout]);
         if (activeProvider && activeProvider !== target.provider) {
           activeProvider.removeListener?.("disconnect", handleDisconnectEvent);
           activeProvider.removeListener?.("accountChanged", handleAccountChanged);

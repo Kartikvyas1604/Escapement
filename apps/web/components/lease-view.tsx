@@ -151,6 +151,7 @@ export function LeaseView() {
           <div
             className="mx-auto mt-8 h-1.5 w-full max-w-md overflow-hidden rounded-full bg-muted"
             role="progressbar"
+            aria-label="Lease tick progress"
             aria-valuenow={lease.iterationsDone}
             aria-valuemin={0}
             aria-valuemax={lease.iterations}

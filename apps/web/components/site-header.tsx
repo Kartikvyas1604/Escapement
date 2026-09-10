@@ -29,8 +29,9 @@ export function SiteHeader() {
               height={28}
             />
             <span className="font-serif text-xl leading-none tracking-wide">
-              ESC
-              <span className="hidden sm:inline">APEMENT</span>
+              <span aria-hidden>ESC</span>
+              <span className="hidden sm:inline" aria-hidden>APEMENT</span>
+              <span className="sr-only">Escapement</span>
             </span>
           </Link>
           <nav aria-label="Main" className="flex items-center gap-3 md:gap-6">
