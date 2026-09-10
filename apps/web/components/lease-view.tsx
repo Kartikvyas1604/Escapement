@@ -27,6 +27,7 @@ export function LeaseView() {
     receipt,
     isSettling,
     error,
+    errorAction,
   } = useEscapement();
   const { publicKey } = useWallet();
   const [now, setNow] = useState<number | null>(null);
@@ -104,19 +105,29 @@ export function LeaseView() {
         </Button>
       </div>
 
-      {error && (
+      {error && errorAction !== "crank" && (
         <div
           role="alert"
           className="flex flex-col gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
         >
           <p className="text-sm text-destructive">{error}</p>
-          <Button
-            variant="secondary"
-            className="min-h-10"
-            onClick={() => void settleFees()}
-          >
-            Retry settle
-          </Button>
+          {errorAction === "settle" && (
+            <Button
+              variant="secondary"
+              className="min-h-10"
+              onClick={() => void settleFees()}
+            >
+              Retry settle
+            </Button>
+          )}
+        </div>
+      )}
+      {error && errorAction === "crank" && (
+        <div
+          role="status"
+          className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-sm text-destructive"
+        >
+          {error} The crank retries automatically.
         </div>
       )}
 
@@ -268,7 +279,7 @@ export function LeaseView() {
             ) : canSettle ? (
               <Button
                 className="w-full min-h-12"
-                loading={isSettling || lease.status === "Settling"}
+                loading={isSettling}
                 onClick={() => void settleFees()}
               >
                 Settle via Magic Action

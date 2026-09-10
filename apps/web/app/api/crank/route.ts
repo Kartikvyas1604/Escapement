@@ -112,7 +112,10 @@ export async function POST(request: Request) {
   const cooldown = cooldownRemaining(leasePkey.toBase58(), lease.intervalMs);
   if (cooldown > 0) {
     return NextResponse.json(
-      { error: `Crank cooldown active for another ${cooldown}ms.` },
+      {
+        error: `Crank cooldown active for another ${cooldown}ms.`,
+        code: "cooldown",
+      },
       { status: 429 }
     );
   }

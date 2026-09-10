@@ -43,6 +43,8 @@ export interface EscState {
   isMinting: boolean;
   isSettling: boolean;
   error: string | null;
+  /** Which user action failed — drives the error banner's retry button. */
+  errorAction: "mint" | "crank" | "settle" | null;
 }
 
 const SERVER_STATE: EscState = {
@@ -54,6 +56,7 @@ const SERVER_STATE: EscState = {
   isMinting: false,
   isSettling: false,
   error: null,
+  errorAction: null,
 };
 
 let state: EscState = SERVER_STATE;
@@ -78,7 +81,7 @@ function persist() {
       })
     );
   } catch {
-    state = { ...state, error: "Browser storage is full — lease state is memory-only." };
+    // Storage full / blocked — state stays memory-only, which is valid.
   }
 }
 
@@ -282,7 +285,11 @@ export async function mintLease(input: {
     update({ lease, ticks: [], receipt: null, isMinting: false });
     return true;
   } catch (err) {
-    update({ isMinting: false, error: walletErrorMessage(err) });
+    update({
+      isMinting: false,
+      error: walletErrorMessage(err),
+      errorAction: "mint",
+    });
     return false;
   }
 }
@@ -314,7 +321,10 @@ export async function crankTick(): Promise<void> {
     });
     if (res.status === 501) throw new Error("__no_server_crank__");
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      const body = (await res.json().catch(() => null)) as { error?: string; code?: string } | null;
+      // A cooldown rejection is expected pacing at minimum cadence, not a
+      // failure — the next interval retry will land. Never surface it.
+      if (res.status === 429 || body?.code === "cooldown") return;
       throw new Error(body?.error ?? `Crank endpoint returned ${res.status}`);
     }
     const body = (await res.json()) as { txSig: string };
@@ -333,13 +343,27 @@ export async function crankTick(): Promise<void> {
         update({ ticks: [tick, ...state.ticks].slice(0, MAX_FEED) });
       }
     }
+    // A successful tick clears any stale error.
+    update({ error: null, errorAction: null });
   } catch (err) {
     if (err instanceof Error && err.message === "__no_server_crank__") {
-      await buyerSignedCrank();
+      try {
+        await buyerSignedCrank();
+        update({ error: null, errorAction: null });
+      } catch (fallbackErr) {
+        update({
+          error: walletErrorMessage(fallbackErr),
+          errorAction: "crank",
+        });
+      }
       return;
     }
-    // Crank failures are retried on the next interval; surface briefly.
-    update({ error: err instanceof Error ? err.message : "Crank failed." });
+    // Crank failures retry on the next interval; surface them, but transient
+    // network noise clears itself on the next successful tick.
+    update({
+      error: err instanceof Error ? err.message : "Crank failed.",
+      errorAction: "crank",
+    });
   } finally {
     crankInFlight = false;
   }
@@ -383,11 +407,12 @@ async function buyerSignedCrank(): Promise<void> {
 /**
  * Settles the executed share of the prepaid fee via the settle_fees
  * instruction. Permissionless on-chain; the buyer signs here for UX.
+ * A partial settle keeps the lease live — the chain is the source of truth.
  */
 export async function settleFees(): Promise<void> {
   const lease = state.lease;
   if (!lease || lease.iterationsDone === 0 || state.isSettling) return;
-  update({ isSettling: true, error: null, lease: { ...lease, status: "Settling" } });
+  update({ isSettling: true, error: null, errorAction: null });
   try {
     const market = state.market ?? (await fetchMarket());
     if (!market) throw new Error("Market is not initialized on this cluster.");
@@ -407,23 +432,31 @@ export async function settleFees(): Promise<void> {
     );
 
     const signature = await signAndConfirm(tx);
+    const before = lease.feeSettledLamports;
     await syncLease();
-    const settled = Math.round(
-      (lease.iterationsDone / lease.iterations) * lease.feePrepaidLamports
-    );
+
+    // Read the settled amount back from the chain — never trust local math.
+    const current = state.lease;
+    const settledAmount = current
+      ? Math.max(0, current.feeSettledLamports - before)
+      : Math.round((lease.iterationsDone / lease.iterations) * lease.feePrepaidLamports);
     const receipt: FeeSettleReceipt = {
       leasePda: lease.leasePda,
-      amountLamports: settled,
+      amountLamports: settledAmount,
       txSig: signature,
       committedAt: Date.now(),
     };
     update({
       isSettling: false,
       receipt,
-      lease: { ...state.lease!, status: "Settled", feeSettledLamports: settled },
+      lease: current ?? lease,
     });
   } catch (err) {
-    update({ isSettling: false, error: walletErrorMessage(err) });
+    update({
+      isSettling: false,
+      error: walletErrorMessage(err),
+      errorAction: "settle",
+    });
     await syncLease();
   }
 }
