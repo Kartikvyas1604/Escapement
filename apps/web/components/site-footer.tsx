@@ -13,6 +13,11 @@ export function SiteFooter() {
           Unused leases expire. Escapement sells execution rights — not a
           tutorial.
         </p>
+        <p className="text-xs text-muted-foreground">
+          Devnet demo. No accounts, no personal data — fees and leases are
+          on-chain only. Cookie-less page analytics only. Anything you sign is
+          your wallet's business.
+        </p>
       </div>
     </footer>
   );
