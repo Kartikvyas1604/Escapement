@@ -1,4 +1,4 @@
-// Test helpers: PDA derivation over plain strings + borsh test encoding.
+// Test helpers: borsh test encoding for lease accounts.
 import { createHash } from "node:crypto";
 import { PublicKey } from "@solana/web3.js";
 import {
@@ -6,19 +6,18 @@ import {
   u32ToBytes,
   concatBytes,
   LEASE_DISCRIMINATOR,
+  MARKET_DISCRIMINATOR,
+  BUYER_STATE_DISCRIMINATOR,
+  REGISTERED_PROGRAM_DISCRIMINATOR,
 } from "../src/program.js";
 
 export { ixNameDiscriminator, LEASE_DISCRIMINATOR } from "../src/program.js";
+export { sha256 } from "../src/program.js";
+export const sha256Local = (data: Uint8Array) => createHash("sha256").update(data).digest();
 
-export function leasePda(buyerBase58: string, index: number): string {
-  const buyer = new PublicKey(buyerBase58);
-  const indexBuf = Buffer.alloc(4);
-  indexBuf.writeUInt32LE(index);
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("lease"), buyer.toBuffer(), indexBuf],
-    new PublicKey("KKAQbHv1YAHo3wAAVETEQGaPBix5tRHWdXcb4G28V6z")
-  )[0].toBase58();
-}
+export const MARKET_DISC = MARKET_DISCRIMINATOR;
+export const BUYER_STATE_DISC = BUYER_STATE_DISCRIMINATOR;
+export const REGISTERED_PROGRAM_DISC = REGISTERED_PROGRAM_DISCRIMINATOR;
 
 interface TestLease {
   buyer: string;
@@ -70,5 +69,3 @@ export function encodeTestLease(l: Partial<TestLease> = {}): Uint8Array {
     new Uint8Array([lease.bump])
   );
 }
-
-export const sha256 = (data: Uint8Array) => createHash("sha256").update(data).digest();

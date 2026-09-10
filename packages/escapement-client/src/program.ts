@@ -16,6 +16,17 @@ export const SEEDS = {
   vault: "vault",
 } as const;
 
+if (
+  typeof globalThis !== "undefined" &&
+  typeof (globalThis as { window?: unknown }).window !== "undefined" &&
+  !process.env.NEXT_PUBLIC_ESCAPEMENT_PROGRAM_ID &&
+  process.env.NODE_ENV === "production"
+) {
+  console.warn(
+    "escapement-client: NEXT_PUBLIC_ESCAPEMENT_PROGRAM_ID is not set — falling back to the bundled devnet program id."
+  );
+}
+
 /** Lease status codes on-chain (u8). */
 export const LEASE_STATUS = {
   0: "Active",
@@ -128,12 +139,19 @@ export function ixNameDiscriminator(name: string): Uint8Array {
 }
 
 export function u64ToBytes(n: number | bigint): Uint8Array {
+  const value = BigInt(n);
+  if (value < 0n || value > 0xffff_ffff_ffff_ffffn) {
+    throw new Error(`u64 out of range: ${n}`);
+  }
   const b = new Uint8Array(8);
-  new DataView(b.buffer).setBigUint64(0, BigInt(n), true);
+  new DataView(b.buffer).setBigUint64(0, value, true);
   return b;
 }
 
 export function u32ToBytes(n: number): Uint8Array {
+  if (!Number.isInteger(n) || n < 0 || n > 0xffff_ffff) {
+    throw new Error(`u32 out of range: ${n}`);
+  }
   const b = new Uint8Array(4);
   new DataView(b.buffer).setUint32(0, n, true);
   return b;
@@ -203,39 +221,64 @@ export function expireLeaseData(): Uint8Array {
 // Account codecs (fixed borsh layout, little-endian)
 // ---------------------------------------------------------------------------
 
+/**
+ * Strict borsh reader: every read is bounds-checked, every integer is
+ * validated. A malformed or truncated account decodes as an error, never as
+ * a plausible object.
+ */
 class Reader {
   offset = 0;
   constructor(public data: Uint8Array) {}
 
+  private need(n: number): void {
+    if (this.offset + n > this.data.length) {
+      throw new Error(
+        `Account data truncated: need ${n} byte(s) at offset ${this.offset}, have ${this.data.length - this.offset}`
+      );
+    }
+  }
+
   u8(): number {
-    return this.data[this.offset++];
+    this.need(1);
+    return this.data[this.offset++]!;
   }
 
   u32(): number {
+    this.need(4);
     const v = new DataView(this.data.buffer, this.data.byteOffset).getUint32(this.offset, true);
     this.offset += 4;
     return v;
   }
 
   u64(): number {
+    this.need(8);
     const v = new DataView(this.data.buffer, this.data.byteOffset).getBigUint64(this.offset, true);
     this.offset += 8;
+    if (v > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error(`u64 value ${v} exceeds safe integer precision`);
+    }
     return Number(v);
   }
 
   i64(): number {
+    this.need(8);
     const v = new DataView(this.data.buffer, this.data.byteOffset).getBigInt64(this.offset, true);
     this.offset += 8;
+    if (v > BigInt(Number.MAX_SAFE_INTEGER) || v < -BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error(`i64 value ${v} exceeds safe integer precision`);
+    }
     return Number(v);
   }
 
   pubkey(): string {
+    this.need(32);
     const p = new PublicKey(this.data.slice(this.offset, this.offset + 32));
     this.offset += 32;
     return p.toBase58();
   }
 
   bytes(n: number): Uint8Array {
+    this.need(n);
     const out = this.data.slice(this.offset, this.offset + n);
     this.offset += n;
     return out;
@@ -250,15 +293,43 @@ export const MARKET_DISCRIMINATOR = ACCOUNT_DISCRIMINATOR("Market");
 export const BUYER_STATE_DISCRIMINATOR = ACCOUNT_DISCRIMINATOR("BuyerState");
 export const REGISTERED_PROGRAM_DISCRIMINATOR = ACCOUNT_DISCRIMINATOR("RegisteredProgram");
 
-function expectDiscriminator(data: Uint8Array, expected: Uint8Array, kind: string): Reader {
-  if (data.length < 8 || !expected.every((b, i) => data[i] === b)) {
-    throw new Error(`Account is not a ${kind}`);
+/** Exact serialized sizes (8-byte discriminator + fields), matching the Anchor layout. */
+export const LEASE_ACCOUNT_SIZE = 8 + 154;
+export const MARKET_ACCOUNT_SIZE = 8 + 49;
+export const BUYER_STATE_ACCOUNT_SIZE = 8 + 4;
+export const REGISTERED_PROGRAM_ACCOUNT_SIZE = 8 + 74;
+
+function expectDiscriminator(
+  data: Uint8Array,
+  expected: Uint8Array,
+  expectedSize: number,
+  kind: string
+): Reader {
+  if (data.length !== expectedSize) {
+    throw new Error(
+      `Account is not a ${kind}: expected ${expectedSize} bytes, got ${data.length}`
+    );
+  }
+  if (!expected.every((b, i) => data[i] === b)) {
+    throw new Error(`Account is not a ${kind}: discriminator mismatch`);
   }
   return new Reader(data.subarray(8));
 }
 
+function decodeStatus<T extends string>(
+  table: Record<number, T>,
+  raw: number,
+  kind: string
+): T {
+  const status = table[raw];
+  if (status === undefined) {
+    throw new Error(`Account is not a valid ${kind}: unknown status byte ${raw}`);
+  }
+  return status;
+}
+
 export function decodeLease(data: Uint8Array): LeaseAccount {
-  const r = expectDiscriminator(data, LEASE_DISCRIMINATOR, "lease");
+  const r = expectDiscriminator(data, LEASE_DISCRIMINATOR, LEASE_ACCOUNT_SIZE, "lease");
   const lease: LeaseAccount = {
     buyer: r.pubkey(),
     registeredProgram: r.pubkey(),
@@ -268,7 +339,7 @@ export function decodeLease(data: Uint8Array): LeaseAccount {
     iterationsDone: r.u32(),
     feePrepaid: r.u64(),
     feeSettled: r.u64(),
-    status: (LEASE_STATUS[r.u8() as keyof typeof LEASE_STATUS] ?? "Active") as OnChainLeaseStatus,
+    status: decodeStatus(LEASE_STATUS, r.u8(), "lease"),
     createdAt: r.i64(),
     expiresAt: r.i64(),
     lastTickAt: r.i64(),
@@ -278,7 +349,7 @@ export function decodeLease(data: Uint8Array): LeaseAccount {
 }
 
 export function decodeMarket(data: Uint8Array): MarketAccount {
-  const r = expectDiscriminator(data, MARKET_DISCRIMINATOR, "market account");
+  const r = expectDiscriminator(data, MARKET_DISCRIMINATOR, MARKET_ACCOUNT_SIZE, "market account");
   const market: MarketAccount = {
     authority: r.pubkey(),
     feeBase: r.u64(),
@@ -289,17 +360,27 @@ export function decodeMarket(data: Uint8Array): MarketAccount {
 }
 
 export function decodeBuyerState(data: Uint8Array): { nextIndex: number } {
-  const r = expectDiscriminator(data, BUYER_STATE_DISCRIMINATOR, "buyer state");
+  const r = expectDiscriminator(
+    data,
+    BUYER_STATE_DISCRIMINATOR,
+    BUYER_STATE_ACCOUNT_SIZE,
+    "buyer state"
+  );
   return { nextIndex: r.u32() };
 }
 
 export function decodeRegisteredProgram(data: Uint8Array): RegisteredProgramAccount {
-  const r = expectDiscriminator(data, REGISTERED_PROGRAM_DISCRIMINATOR, "registered program");
+  const r = expectDiscriminator(
+    data,
+    REGISTERED_PROGRAM_DISCRIMINATOR,
+    REGISTERED_PROGRAM_ACCOUNT_SIZE,
+    "registered program"
+  );
   const registered: RegisteredProgramAccount = {
     authority: r.pubkey(),
     templateId: r.pubkey(),
     ixDiscriminator: r.bytes(8),
-    status: (MARKET_STATUS[r.u8() as keyof typeof MARKET_STATUS] ?? "Active") as RegisteredProgramStatus,
+    status: decodeStatus(MARKET_STATUS, r.u8(), "registered program"),
     bump: r.u8(),
   };
   return registered;
