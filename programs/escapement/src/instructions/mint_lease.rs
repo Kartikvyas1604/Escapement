@@ -48,6 +48,14 @@ pub fn handle_mint_lease(ctx: Context<MintLease>, interval_ms: u64, iterations: 
         ctx.accounts.registered_program.status == PROGRAM_STATUS_ACTIVE,
         EscapementError::ProgramPaused
     );
+    require!(
+        interval_ms >= MIN_INTERVAL_MS && interval_ms <= MAX_INTERVAL_MS,
+        EscapementError::IntervalOutOfRange
+    );
+    require!(
+        iterations >= MIN_ITERATIONS && iterations <= MAX_ITERATIONS,
+        EscapementError::IterationsOutOfRange
+    );
 
     let market = &ctx.accounts.market;
     let fee_prepaid = market

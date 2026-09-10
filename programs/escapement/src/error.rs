@@ -20,6 +20,8 @@ pub enum EscapementError {
     UnauthorizedAuthority,
     #[msg("Nothing to settle — fire at least one tick first")]
     NoTicksToSettle,
+    #[msg("Nothing new to settle — every fired tick is already settled")]
+    NothingToSettle,
     #[msg("Lease cannot be expired yet and only the buyer may cancel early")]
     LeaseNotExpirable,
     #[msg("Lease references a different registered program")]
@@ -30,4 +32,8 @@ pub enum EscapementError {
     Overflow,
     #[msg("Invalid program status value")]
     InvalidStatus,
+    #[msg("Interval is outside the market's allowed range (100–2000 ms)")]
+    IntervalOutOfRange,
+    #[msg("Iteration count is outside the market's allowed range (1–100)")]
+    IterationsOutOfRange,
 }

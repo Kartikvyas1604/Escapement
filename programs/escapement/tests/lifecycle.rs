@@ -198,6 +198,155 @@ fn crank_ix(env: &Env, lease: &Pubkey) -> Instruction {
     )
 }
 
+fn settle_ix(env: &Env, lease: &Pubkey) -> Instruction {
+    Instruction::new_with_bytes(
+        escapement::ID,
+        &escapement::instruction::SettleFees {}.data(),
+        escapement::accounts::SettleFees {
+            fee_receiver: env.authority.pubkey(),
+            market: env.market,
+            lease: *lease,
+            vault: env.vault,
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
+    )
+}
+
+fn mint_ix(env: &mut Env, interval_ms: u64, iterations: u32) -> Instruction {
+    let buyer_state = derive(&[BUYER_SEED, env.buyer.pubkey().as_ref()], &escapement::ID);
+    let buyer_state_info = env.svm.get_account(&buyer_state);
+    let index = match buyer_state_info {
+        Some(acc) => escapement::state::BuyerState::try_deserialize(&mut acc.data.as_slice())
+            .unwrap()
+            .next_index,
+        None => 0,
+    };
+    let lease = derive(
+        &[LEASE_SEED, env.buyer.pubkey().as_ref(), &index.to_le_bytes()],
+        &escapement::ID,
+    );
+    Instruction::new_with_bytes(
+        escapement::ID,
+        &escapement::instruction::MintLease {
+            interval_ms,
+            iterations,
+        }
+        .data(),
+        escapement::accounts::MintLease {
+            buyer: env.buyer.pubkey(),
+            market: env.market,
+            registered_program: env.registered_program,
+            buyer_state,
+            lease,
+            vault: env.vault,
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
+    )
+}
+
+#[test]
+fn mint_rejects_out_of_bounds_parameters() {
+    let mut env = setup();
+
+    // Interval below the floor, above the ceiling, and zero iterations.
+    let res = { let ix = mint_ix(&mut env, 99, 5); build(&mut env.svm, &env.buyer, ix, &[]) };
+    assert!(res.is_err());
+    let res = { let ix = mint_ix(&mut env, 2_001, 5); build(&mut env.svm, &env.buyer, ix, &[]) };
+    assert!(res.is_err());
+    let res = { let ix = mint_ix(&mut env, 500, 0); build(&mut env.svm, &env.buyer, ix, &[]) };
+    assert!(res.is_err());
+    let res = { let ix = mint_ix(&mut env, 500, 101); build(&mut env.svm, &env.buyer, ix, &[]) };
+    assert!(res.is_err());
+
+    // In-bounds mint still works after the rejections.
+    let lease = mint_lease(&mut env, 500, 5);
+    assert_eq!(fetch_lease(&env, &lease).status, STATUS_ACTIVE);
+}
+
+#[test]
+fn partial_settle_keeps_lease_settleable() {
+    let mut env = setup();
+    let iterations = 4u32;
+    let lease = mint_lease(&mut env, 1_000, iterations);
+
+    // Fire 1 of 4 ticks, then settle.
+    let ix = crank_ix(&env, &lease);
+    build(&mut env.svm, &env.buyer, ix.clone(), &[]).unwrap();
+    let fee_prepaid = FEE_BASE + FEE_PER_TICK * iterations as u64;
+    let first_due = fee_prepaid / 4;
+    let first_settle = settle_ix(&env, &lease);
+    send(&mut env.svm, &env.buyer, first_settle, &[]).unwrap();
+
+    // Partial settle must NOT flip the lease to SETTLED — remaining escrow
+    // stays reachable, and the lease can still fire its remaining ticks.
+    let lease_state = fetch_lease(&env, &lease);
+    assert_eq!(lease_state.status, STATUS_ACTIVE);
+    assert_eq!(lease_state.fee_settled, first_due);
+
+    // Re-settling with no new ticks must fail honestly.
+    let res = { let ix = settle_ix(&env, &lease); send(&mut env.svm, &env.buyer, ix, &[]) };
+    assert!(res.is_err());
+
+    // Exhaust the lease, settle again: incremental payout completes the fee.
+    for _ in 1..iterations {
+        build(&mut env.svm, &env.buyer, ix.clone(), &[]).unwrap();
+    }
+    let authority_before = env.svm.get_balance(&env.authority.pubkey()).unwrap();
+    let ix = settle_ix(&env, &lease); send(&mut env.svm, &env.buyer, ix, &[]).unwrap();
+
+    let lease_state = fetch_lease(&env, &lease);
+    assert_eq!(lease_state.status, STATUS_SETTLED);
+    assert_eq!(lease_state.fee_settled, fee_prepaid);
+    assert_eq!(
+        env.svm.get_balance(&env.authority.pubkey()).unwrap(),
+        authority_before + (fee_prepaid - first_due)
+    );
+    // The vault is fully drained — nothing stranded.
+    assert_eq!(env.svm.get_balance(&env.vault).unwrap_or(0), 0);
+}
+
+#[test]
+fn partial_settle_reminder_sweeps_on_expiry() {
+    let mut env = setup();
+    let iterations = 10u32;
+    let lease = mint_lease(&mut env, 1_000, iterations);
+
+    // Fire 2 ticks, settle partially, then let the lease expire.
+    let ix = crank_ix(&env, &lease);
+    build(&mut env.svm, &env.buyer, ix.clone(), &[]).unwrap();
+    build(&mut env.svm, &env.buyer, ix, &[]).unwrap();
+    let ix = settle_ix(&env, &lease); send(&mut env.svm, &env.buyer, ix, &[]).unwrap();
+
+    let fee_prepaid = FEE_BASE + FEE_PER_TICK * iterations as u64;
+    let settled = fee_prepaid * 2 / 10;
+
+    let authority_before = env.svm.get_balance(&env.authority.pubkey()).unwrap();
+    let ix = Instruction::new_with_bytes(
+        escapement::ID,
+        &escapement::instruction::ExpireLease {}.data(),
+        escapement::accounts::ExpireLease {
+            signer: env.buyer.pubkey(),
+            market: env.market,
+            lease,
+            fee_receiver: env.authority.pubkey(),
+            vault: env.vault,
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
+    );
+    send(&mut env.svm, &env.buyer, ix, &[]).unwrap();
+
+    // The unsettled remainder (prepaid - settled) sweeps to the authority.
+    assert_eq!(
+        env.svm.get_balance(&env.authority.pubkey()).unwrap(),
+        authority_before + (fee_prepaid - settled)
+    );
+    assert_eq!(env.svm.get_balance(&env.vault).unwrap_or(0), 0);
+    assert_eq!(fetch_lease(&env, &lease).status, STATUS_EXPIRED);
+}
+
 #[test]
 fn lease_lifecycle_mint_crank_settle() {
     let mut env = setup();

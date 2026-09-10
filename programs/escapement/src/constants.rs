@@ -18,3 +18,11 @@ pub const PROGRAM_STATUS_PAUSED: u8 = 1;
 
 /// Grace window after the nominal expiry during which ticks still fire.
 pub const GRACE_SECS: i64 = 60;
+
+/// Lease parameter bounds, enforced on mint. A lease is not an unlimited
+/// cron: cadence and iteration count are bounded so no lease can dominate
+/// the market or mint itself into an unpayable schedule.
+pub const MIN_INTERVAL_MS: u64 = 100;
+pub const MAX_INTERVAL_MS: u64 = 2_000;
+pub const MIN_ITERATIONS: u32 = 1;
+pub const MAX_ITERATIONS: u32 = 100;
