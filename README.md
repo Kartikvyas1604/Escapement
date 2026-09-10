@@ -14,7 +14,7 @@
 [![Solana](https://img.shields.io/badge/Solana-devnet-9945FF.svg)](#live-on-devnet)
 [![Anchor](https://img.shields.io/badge/Anchor-1.1-E4470B.svg)](#the-escapement-program)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg)](#the-platform)
-[![Tests](https://img.shields.io/badge/tests-14%20passing-22C55E.svg)](#quality)
+[![Tests](https://img.shields.io/badge/tests-29%20passing-22C55E.svg)](#quality)
 
 </div>
 
@@ -178,12 +178,17 @@ Deep dives:
 Every layer is tested where it can fail:
 
 - **On-chain** — a LiteSVM suite drives the full lifecycle: mint, tick to
-  exhaustion, permissionless settle, partial-settle math, cap enforcement, and
-  stranger rejection.
-- **Client** — instruction discriminators, PDA determinism, and borsh account
-  round-trips under vitest.
+  exhaustion, permissionless settle, incremental partial-settle math,
+  on-chain parameter bounds, cap enforcement, expiry sweeps, and stranger
+  rejection.
+- **Client** — Anchor discriminators against reference constants, PDA
+  determinism against independent derivations, and strict codec edge cases
+  (truncation, oversize, unknown status, u64 precision) under vitest.
 - **Continuous** — GitHub Actions runs lint, typecheck, tests, a production
-  build, and the Anchor suite on every push.
+  build, the Anchor suite, and a dependency audit on every push.
+- **Operational** — a runbook covers rollback, program upgrades, key
+  rotation, and incident response; security posture and disclosure live in
+  SECURITY.md.
 
 ---
 
