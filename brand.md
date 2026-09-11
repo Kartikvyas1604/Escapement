@@ -34,11 +34,11 @@ Dark-native only. The product spec mandates near-black; there is no light theme.
 
 ## Logo
 
-The mark is a **15-tooth escape wheel** — the watch mechanism that releases motion one tick at a time — engaged by a two-pallet anchor fork. It literalizes the product: discrete, metered ticks bought as a lease.
+The mark is a **tick stack** — four heavy bars in a sequencer rhythm: the first, second, and fourth ticks have already fired (dimmed), the peak bar is the live tick in cyan. It says "scheduled, metered execution" with zero mechanical imagery.
 
-- `public/logo-mark.svg` — mark only, transparent, dark-background colors (light wheel, cyan pallets/axle).
+- `public/logo-mark.svg` — mark only, transparent, dark-background colors (dimmed soft-white bars, cyan peak).
 - `public/logo-lockup.svg` — horizontal lockup with serif wordmark + mono "LIVE KEEPER EXCHANGE" tagline, for dark backgrounds.
-- `public/logo-lockup-light.svg` — same lockup re-inked for light backgrounds (near-black wheel/text).
+- `public/logo-lockup-light.svg` — same lockup re-inked for light backgrounds (near-black bars/text).
 - `app/icon.svg` — favicon: mark on a near-black rounded tile.
 
-Rules: cyan is reserved for the pallets, axle, and interactive accents — never recolor the wheel. Clear space around the mark ≥ wheel radius. No gradients, no drop shadows.
+Rules: cyan is reserved for the peak bar and interactive accents — the other bars stay soft-white (near-black on light backgrounds). Clear space around the mark ≥ one bar width. No gradients, no drop shadows, no outlines.
