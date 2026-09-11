@@ -17,6 +17,24 @@ const csp = [
   "form-action 'self'",
 ].join("; ");
 
+/**
+ * Dev-mode CSP: React uses eval() in development for debugging, and
+ * Turbopack HMR needs same-origin WebSocket upgrades — so `next dev`
+ * gets a relaxed script/connect policy. Production keeps the strict
+ * policy above (React never uses eval() in production).
+ */
+const devCsp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self' ws: http://localhost:* http://127.0.0.1:* https://api.devnet.solana.com https://api.testnet.solana.com https://api.mainnet-beta.solana.com https://*.magicblock.app https://vercel.live",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   transpilePackages: ["escapement-client"],
   async headers() {
@@ -24,7 +42,10 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: [
-          { key: "Content-Security-Policy", value: csp },
+          {
+            key: "Content-Security-Policy",
+            value: process.env.NODE_ENV === "development" ? devCsp : csp,
+          },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
