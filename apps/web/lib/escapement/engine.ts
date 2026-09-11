@@ -231,6 +231,12 @@ export async function syncLease(): Promise<void> {
 async function signAndConfirm(tx: Transaction): Promise<string> {
   const provider = getActiveProvider();
   if (!provider) throw new Error("Wallet is not connected.");
+  // Wallets refuse to sign a legacy Transaction without a recent blockhash
+  // ("Transaction recentBlockhash required") and some require an explicit
+  // fee payer — fetch both fresh before handing the tx over.
+  const { blockhash } = await rpc().getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = requireBuyer();
   const { signature } = await provider.signAndSendTransaction(tx);
   const result = await rpc().confirmTransaction(signature, "confirmed");
   if (result.value.err) {
