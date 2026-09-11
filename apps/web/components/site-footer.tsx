@@ -1,4 +1,4 @@
-const LAST_PORTAL_CHECK = "2026-09-07 18:00 SGT";
+const LAST_PORTAL_CHECK = "2026-09-11 12:50 SGT (closed — Forge path)";
 
 export function SiteFooter() {
   return (

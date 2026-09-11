@@ -138,6 +138,43 @@ bridge between them), and the two Anchor programs.
 
 ---
 
+## Buy a lease with an agent (x402)
+
+Agents and scripts can buy an Escapement lease over plain HTTP — no wallet
+extension, no API key — via the [x402 protocol](https://x402.org) (spec v2),
+which uses the long-reserved HTTP 402 "Payment Required" status to settle
+USDC micropayments machine-to-machine.
+
+**Flow** (`POST /api/leases`, JSON body `{ "intervalMs": 500, "iterations": 20 }`):
+
+1. The endpoint answers **402** with payment requirements in the
+   `PAYMENT-REQUIRED` header (base64 x402 `PaymentRequired` object: USDC
+   price, network, pay-to address).
+2. The agent pays with an x402 client (any facilitator-supported wallet) and
+   retries with the signed payload in the `PAYMENT-SIGNATURE` header.
+3. The server verifies the payment (facilitator `/verify`), mints the lease
+   on-chain with the protocol wallet as buyer, settles the payment
+   (facilitator `/settle`), and returns the lease PDA, mint transaction
+   signature, and explorer link — with the settlement receipt in the
+   `PAYMENT-RESPONSE` header.
+
+```bash
+curl -i -X POST https://<host>/api/leases \
+  -H 'Content-Type: application/json' \
+  -d '{"intervalMs":500,"iterations":20}'
+# → 402 + PAYMENT-REQUIRED …pay with an x402 client, then retry with PAYMENT-SIGNATURE
+```
+
+MVP honesty: price is a flat `X402_LEASE_PRICE_ATOMIC` (default $0.01 USDC),
+the network is derived from the cluster's real genesis hash (CAIP-2), and
+verification/settlement are delegated to a configurable facilitator
+(`X402_FACILITATOR_URL`, default the Coinbase public facilitator). The
+minted lease cranks the registered demo template. Configure
+`X402_PAY_TO`, `X402_LEASE_PRICE_ATOMIC`, and `X402_USDC_MINT` — see
+`.env.example`.
+
+---
+
 ## Why this is honest
 
 **Lease market first.** ScheduleTask is *how* a lease executes. Escapement is
@@ -191,9 +228,9 @@ Every layer is tested where it can fail:
   (truncation, oversize, unknown status, u64 precision) under vitest.
 - **Continuous** — GitHub Actions runs lint, typecheck, tests, a production
   build, the Anchor suite, and a dependency audit on every push.
-- **Operational** — a runbook covers rollback, program upgrades, key
-  rotation, and incident response; security posture and disclosure live in
-  SECURITY.md.
+- **Operational** — Vercel keeps every deployment (rollback = promote the
+  last good build); security posture and disclosure live in
+  [SECURITY.md](SECURITY.md).
 
 ---
 

@@ -36,7 +36,9 @@ keypairs; email the maintainer first in that case.
    flows.
 4. **`CRANK_KEYPAIR` compromise** lets an attacker crank any lease (burning
    prepaid iterations faster than cadence is prevented by per-lease cooldown;
-   buyer-owned cranks are unaffected). Rotation procedure in RUNBOOK.md.
+   buyer-owned cranks are unaffected). Rotation: generate a new keypair,
+   update the `CRANK_KEYPAIR`/`CRANK_KEYPAIR_PATH` env var, redeploy, and
+   destroy the old keypair.
 5. **Explorer links** point at explorer.solana.com only; no other explorer
    is configurable.
 
