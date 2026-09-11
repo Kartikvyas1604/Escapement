@@ -49,7 +49,7 @@ jobs:
           cargo install --git https://github.com/solana-foundation/anchor --tag v1.1.2 anchor-cli --locked
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
