@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs";
 import {
   Connection,
   Keypair,
@@ -16,30 +15,11 @@ import {
   decodeLease,
   marketPda,
 } from "escapement-client";
+import { protocolKeypair } from "@/lib/escapement/server-keypair";
 
 export const dynamic = "force-dynamic";
 
 const ROUTE_TIMEOUT_MS = 25_000;
-
-let cachedKeypair: Keypair | null | undefined;
-function crankKeypair(): Keypair | null {
-  if (cachedKeypair !== undefined) return cachedKeypair;
-  cachedKeypair = null;
-  try {
-    if (process.env.CRANK_KEYPAIR) {
-      cachedKeypair = Keypair.fromSecretKey(
-        Uint8Array.from(JSON.parse(process.env.CRANK_KEYPAIR))
-      );
-    } else if (process.env.CRANK_KEYPAIR_PATH) {
-      cachedKeypair = Keypair.fromSecretKey(
-        Uint8Array.from(JSON.parse(fs.readFileSync(process.env.CRANK_KEYPAIR_PATH, "utf8")))
-      );
-    }
-  } catch {
-    cachedKeypair = null;
-  }
-  return cachedKeypair;
-}
 
 let connection: Connection | null = null;
 function rpc(): Connection {
@@ -132,7 +112,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const authority = crankKeypair();
+  const authority = protocolKeypair();
   if (!authority) {
     return NextResponse.json(
       {
