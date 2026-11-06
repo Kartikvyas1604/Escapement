@@ -19,6 +19,6 @@
     "program:e2e": "tsx scripts/e2e-devnet.mjs"
   },
   "devDependencies": {
-    "tsx": "^4.23.13"
+    "tsx": "^4.23.15"
   }
 }
